@@ -1,22 +1,27 @@
 apiVersion: v1
 kind: Pod
+
 metadata:
   name: user05-nvhpc-cuda
+
 spec:
   restartPolicy: Never
+
   volumes:
     - name: user05-nvhpc-cuda-pv
       persistentVolumeClaim:
         claimName: pemrograman-paralel-pv-claim
+
   containers:
     - name: app
-      image: "nvcr.io/nvidia/nvhpc:24.9-devel-cuda_multi-ubuntu22.04"
+      image: "nvcr.io/nvidia/nvhpc:24.5-devel-cuda12.4-ubuntu22.04"
       command: ["/bin/sh"]
       args:
         [
           "-c",
           "while true; do echo 'pemrograman-paralel-pod log'; sleep 10; done",
         ]
+
       volumeMounts:
         - name: user05-nvhpc-cuda-pv
           mountPath: "/workspace"

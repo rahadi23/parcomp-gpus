@@ -1,7 +1,9 @@
 kind: Pod
 apiVersion: v1
+
 metadata:
   name: user05-nvhpc-cuda
+
 spec:
   # Add the server as an NFS volume for the pod
   volumes:
@@ -15,7 +17,7 @@ spec:
   # and write the date to a file inside it.
   containers:
     - name: app
-      image: nvcr.io/nvidia/nvhpc:21.9-devel-cuda_multi-ubuntu20.04
+      image: nvcr.io/nvidia/nvhpc:24.5-devel-cuda12.4-ubuntu22.04
 
       # Mount the NFS volume in the container
       volumeMounts:
@@ -25,7 +27,9 @@ spec:
       # Write to a file inside our NFS
       command: ["/bin/sh"]
       args: ["-c", "while true; do date >> /workspace/date.txt; sleep 5; done"]
-#  nodeSelector:
-#      gputype: gpu-01
+
+  nodeSelector:
+    gputype: gpu-01
+
   imagePullSecrets:
-      - name: nvcr.dgxkey
+    - name: nvcr.dgxkey

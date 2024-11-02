@@ -36,35 +36,35 @@ spec:
         - name: user05-nvhpc-cuda-pv
           mountPath: "/workspace"
 ```
+or use `environments/dgx-1/pods.yml`
 
 ### Deployment
 
 Run the pod with the following command:
 
 ```
-kubectl --kubeconfig ./dgx-config apply -f ./pods.yml
+kubectl apply -f ./pods.yml
 ```
 
-We set `--kubeconfig` flag to use a custom config file `./dgx-config` instead of the default config file `~/.kube/config`.
-Remove this flag if you want to use the default config file.
+We assume that the kubectl's authentication is already set in the default config `~/.kube/config` to access the cluster. You can also set `--kubeconfig` flag to use a custom config file.
 
 
 ### Monitoring
 
-Observe pod creation with the following command:
+Observe the pod creation with the following command:
 
 ```
-kubectl --kubeconfig ./dgx-config describe pods user05-nvhpc-cuda
+kubectl describe pods user05-nvhpc-cuda
 ```
 
-Again, we use custom config here. You can adjust these accordingly, including the pod's name.
+The pod's name `user05-nvhpc-cuda` in this example should match the pod's name that is deployed via `pods.yml` earlier (see `metadata.name`).
 
-What we want to monitor is the pod's events. We should make sure that the pod's creation process is running as expected.
+What we want to monitor is the pod's events. We should make sure that the pod creation process is running as expected.
 
 Furthermore, check the pod's status using the following command:
 
 ```
-kubectl --kubeconfig ./dgx-config get pods
+kubectl get pods
 ```
 
 If everything went well, the pod's status should be 'running'.
@@ -74,7 +74,7 @@ If everything went well, the pod's status should be 'running'.
 We can use the pod by `exec`-ing to the pod:
 
 ```
-kubectl --kubeconfig ./dgx-config exec -it user05-nvhpc-cuda /bin/bash
+kubectl exec -it user05-nvhpc-cuda -- /bin/bash
 ```
 
 After that, we can do whatever we want inside the pod. For example:
@@ -97,6 +97,6 @@ nvcc program.cu -o program.o
 We can do cleanup to pods that are no longer used by deleting it using the following command:
 
 ```
-kubectl --kubeconfig ./dgx-config delete pods user05-nvhpc-cuda
+kubectl delete pods user05-nvhpc-cuda
 ```
 
