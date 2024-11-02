@@ -2,16 +2,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#define N 15
-#define BLOCK_SIZE 5
-
-#define CUDACHECK(err)                     \
-  do                                       \
-  {                                        \
-    cuda_check((err), __FILE__, __LINE__); \
+#define CUDACHECK(err)                    \
+  do                                      \
+  {                                       \
+    cudaCheck((err), __FILE__, __LINE__); \
   } while (false)
 
-inline void cuda_check(cudaError_t error_code, const char *file, int line)
+inline void cudaCheck(cudaError_t error_code, const char *file, int line)
 {
   if (error_code != cudaSuccess)
   {
@@ -21,47 +18,104 @@ inline void cuda_check(cudaError_t error_code, const char *file, int line)
   }
 }
 
-__global__ void indicesOnDevice(int *a, int n)
+void parseArgs(int argc, char *argv[], int *dimSize, int *blockSize)
+{
+  char *cp;
+  long lDimSize, lBlockSize;
+
+  // Check for the right number of arguments
+  if (argc != 3)
+  {
+    fprintf(stderr, "[ERROR] Must be run with exactly 2 argument, found %d!\nUsage: %s <N>\n", argc - 1, argv[0]);
+    exit(1);
+  }
+
+  cp = argv[1];
+
+  if (*cp == 0)
+  {
+    fprintf(stderr, "[ERROR] Argument '%s' is an empty string\n", argv[1]);
+    exit(1);
+  }
+
+  lDimSize = strtol(cp, &cp, 10);
+
+  if (*cp != 0)
+  {
+    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", argv[1], cp);
+    exit(1);
+  }
+
+  *dimSize = (int)lDimSize;
+
+  cp = argv[2];
+
+  if (*cp == 0)
+  {
+    fprintf(stderr, "[ERROR] Argument %s is an empty string\n", argv[2]);
+    exit(1);
+  }
+
+  lBlockSize = strtol(cp, &cp, 10);
+
+  if (*cp != 0)
+  {
+    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", argv[2], cp);
+    exit(1);
+  }
+
+  *blockSize = (int)lBlockSize;
+}
+
+__global__ void indicesOnDevice(int *block, int *thread, int *index)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (idx < n)
-  {
-    a[idx] = blockIdx.x;
-  }
+  block[idx] = blockIdx.x;
+  thread[idx] = threadIdx.x;
+  index[idx] = idx;
 }
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
-  int *h_a, *d_a;
+  int dimSize, blockSize, *h_block, *d_block, *h_thread, *d_thread, *h_index, *d_index;
 
-  int nBlocks = N / BLOCK_SIZE + (N % BLOCK_SIZE == 0 ? 0 : 1);
+  parseArgs(argc, argv, &dimSize, &blockSize);
 
-  // dim3 dimGrid(GRID_SIZE);
-  // dim3 dimBlock(BLOCK_SIZE);
+  int N = dimSize * blockSize;
 
   size_t memSize = sizeof(int) * N;
 
-  cudaMallocHost((void **)&h_a, memSize);
-  cudaMalloc((void **)&d_a, memSize);
+  cudaMallocHost((void **)&h_block, memSize);
+  cudaMallocHost((void **)&h_thread, memSize);
+  cudaMallocHost((void **)&h_index, memSize);
 
-  // cudaMemcpy(d_a, h_a, memSize, cudaMemcpyHostToDevice);
+  cudaMalloc((void **)&d_block, memSize);
+  cudaMalloc((void **)&d_thread, memSize);
+  cudaMalloc((void **)&d_index, memSize);
 
-  indicesOnDevice<<<nBlocks, BLOCK_SIZE>>>(d_a, N);
-
+  indicesOnDevice<<<dimSize, blockSize>>>(d_block, d_thread, d_index);
   CUDACHECK(cudaPeekAtLastError());
 
-  cudaMemcpy(h_a, d_a, memSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_block, d_block, memSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_thread, d_thread, memSize, cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_index, d_index, memSize, cudaMemcpyDeviceToHost);
+
+  printf("\nDim Size: %6d   Block Size: %6d\n", dimSize, blockSize);
+
+  printf("-------------------------------------\n");
+  printf("|      i |  block | thread |  index |\n");
+  printf("-------------------------------------\n");
 
   for (int i = 0; i < N; i++)
   {
-    printf("%d ", h_a[i]);
+    printf("| %6d | %6d | %6d | %6d |\n", i, h_block[i], h_thread[i], h_index[i]);
   }
 
-  printf("\n");
+  printf("-------------------------------------\n\n");
 
-  cudaFreeHost(h_a);
-  cudaFree(d_a);
+  cudaFreeHost(h_block);
+  cudaFree(d_block);
 
   return 0;
 }

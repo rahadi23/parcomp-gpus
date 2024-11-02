@@ -1,5 +1,3 @@
-// incrementArray.cu
-
 #include <stdio.h>
 #include <assert.h>
 #include <cuda.h>
