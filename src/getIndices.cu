@@ -67,7 +67,7 @@ void parseArgs(int argc, char *argv[], int *dimSize, int *blockSize)
   *blockSize = (int)lBlockSize;
 }
 
-__global__ void indicesOnDevice(int *block, int *thread, int *index)
+__global__ void getIndicesOnDevice(int *block, int *thread, int *index)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
   cudaMalloc((void **)&d_thread, memSize);
   cudaMalloc((void **)&d_index, memSize);
 
-  indicesOnDevice<<<dimSize, blockSize>>>(d_block, d_thread, d_index);
+  getIndicesOnDevice<<<dimSize, blockSize>>>(d_block, d_thread, d_index);
   CUDACHECK(cudaPeekAtLastError());
 
   cudaMemcpy(h_block, d_block, memSize, cudaMemcpyDeviceToHost);
