@@ -112,7 +112,8 @@ int main(int argc, char *argv[])
     printf("| %6d | %6d | %6d | %6d |\n", i, h_block[i], h_thread[i], h_index[i]);
   }
 
-  printf("-------------------------------------\n\n");
+  printf("-------------------------------------\n");
+  printf("                            N: %6d\n\n", N);
 
   cudaFreeHost(h_block);
   cudaFree(d_block);
