@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
       // Retrieve result from device and store in b_h
       cudaMemcpy(b_h, a_d, sizeof(float) * N, cudaMemcpyDeviceToHost);
 
-      cudaThreadSynchronize();
+      cudaDeviceSynchronize();
       // time counting terminate
       cudaEventRecord(stop, 0);
       cudaEventSynchronize(stop);
