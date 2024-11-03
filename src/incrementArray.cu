@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
   blockIter = (blockMax - blockMin) / blockInc + 1;
 
   printf("\n----------------------------------------------------------------------------------------------\n");
-  printf("|         N |   dimSize | blockSize |      isOk |      gpuTime |      cpuTime |      speedUp |\n");
+  printf("|         N |  gridSize | blockSize |      isOk |      gpuTime |      cpuTime |      speedUp |\n");
   printf("----------------------------------------------------------------------------------------------\n");
 
   for (k = 0; k < NIter; k++)
@@ -127,10 +127,10 @@ int main(int argc, char *argv[])
 
       // do calculation on device:
       // Part 1 of 2. Compute execution configuration
-      int dimSize = N / blockSize + (N % blockSize == 0 ? 0 : 1);
+      int gridSize = N / blockSize + (N % blockSize == 0 ? 0 : 1);
 
       // Part 2 of 2. Call incrementArrayOnDevice kernel
-      incrementArrayOnDevice<<<dimSize, blockSize>>>(a_d, N);
+      incrementArrayOnDevice<<<gridSize, blockSize>>>(a_d, N);
       CUDACHECK(cudaPeekAtLastError());
 
       // Retrieve result from device and store in b_h
@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
       }
 
       // assert(resultIsOk);
-      printf("| %9d | %9d | %9d | %9d | %12.8f | %12.8f | %12.8f |\n", N, dimSize, blockSize, resultIsOk, gpu_elapsed_time_ms, cpu_elapsed_time_ms, cpu_elapsed_time_ms / gpu_elapsed_time_ms);
+      printf("| %9d | %9d | %9d | %9d | %12.8f | %12.8f | %12.8f |\n", N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, cpu_elapsed_time_ms, cpu_elapsed_time_ms / gpu_elapsed_time_ms);
 
       // cleanup
       free(a_h);

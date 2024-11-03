@@ -42,16 +42,16 @@ void parseArgsInt(char *arg, int *val)
   *val = (int)lVal;
 }
 
-void parseArgs(int argc, char *argv[], int *dimSize, int *blockSize)
+void parseArgs(int argc, char *argv[], int *gridSize, int *blockSize)
 {
   // Check for the right number of arguments
   if (argc != 3)
   {
-    fprintf(stderr, "[ERROR] Must be run with exactly 2 argument, found %d!\nUsage: %s <dimSize> <blockSize>\n", argc - 1, argv[0]);
+    fprintf(stderr, "[ERROR] Must be run with exactly 2 argument, found %d!\nUsage: %s <gridSize> <blockSize>\n", argc - 1, argv[0]);
     exit(1);
   }
 
-  parseArgsInt(argv[1], dimSize);
+  parseArgsInt(argv[1], gridSize);
   parseArgsInt(argv[2], blockSize);
 }
 
@@ -66,11 +66,11 @@ __global__ void getIndicesOnDevice(int *block, int *thread, int *index)
 
 int main(int argc, char *argv[])
 {
-  int dimSize, blockSize, *h_block, *d_block, *h_thread, *d_thread, *h_index, *d_index;
+  int gridSize, blockSize, *h_block, *d_block, *h_thread, *d_thread, *h_index, *d_index;
 
-  parseArgs(argc, argv, &dimSize, &blockSize);
+  parseArgs(argc, argv, &gridSize, &blockSize);
 
-  int N = dimSize * blockSize;
+  int N = gridSize * blockSize;
 
   size_t memSize = sizeof(int) * N;
 
@@ -82,14 +82,14 @@ int main(int argc, char *argv[])
   cudaMalloc((void **)&d_thread, memSize);
   cudaMalloc((void **)&d_index, memSize);
 
-  getIndicesOnDevice<<<dimSize, blockSize>>>(d_block, d_thread, d_index);
+  getIndicesOnDevice<<<gridSize, blockSize>>>(d_block, d_thread, d_index);
   CUDACHECK(cudaPeekAtLastError());
 
   cudaMemcpy(h_block, d_block, memSize, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_thread, d_thread, memSize, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_index, d_index, memSize, cudaMemcpyDeviceToHost);
 
-  printf("\nDim Size: %6d   Block Size: %6d\n", dimSize, blockSize);
+  printf("\nGrid Size: %6d  Block Size: %6d\n", gridSize, blockSize);
 
   printf("-------------------------------------\n");
   printf("|      i |  block | thread |  index |\n");
