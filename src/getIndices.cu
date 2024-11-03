@@ -18,53 +18,41 @@ inline void cudaCheck(cudaError_t error_code, const char *file, int line)
   }
 }
 
-void parseArgs(int argc, char *argv[], int *dimSize, int *blockSize)
+void parseArgsInt(char *arg, int *val)
 {
   char *cp;
-  long lDimSize, lBlockSize;
+  long lVal;
 
+  cp = arg;
+
+  if (*cp == 0)
+  {
+    fprintf(stderr, "[ERROR] Argument '%s' is an empty string\n", arg);
+    exit(1);
+  }
+
+  lVal = strtol(cp, &cp, 10);
+
+  if (*cp != 0)
+  {
+    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", arg, cp);
+    exit(1);
+  }
+
+  *val = (int)lVal;
+}
+
+void parseArgs(int argc, char *argv[], int *dimSize, int *blockSize)
+{
   // Check for the right number of arguments
   if (argc != 3)
   {
-    fprintf(stderr, "[ERROR] Must be run with exactly 2 argument, found %d!\nUsage: %s <N>\n", argc - 1, argv[0]);
+    fprintf(stderr, "[ERROR] Must be run with exactly 2 argument, found %d!\nUsage: %s <dimSize> <blockSize>\n", argc - 1, argv[0]);
     exit(1);
   }
 
-  cp = argv[1];
-
-  if (*cp == 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is an empty string\n", argv[1]);
-    exit(1);
-  }
-
-  lDimSize = strtol(cp, &cp, 10);
-
-  if (*cp != 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", argv[1], cp);
-    exit(1);
-  }
-
-  *dimSize = (int)lDimSize;
-
-  cp = argv[2];
-
-  if (*cp == 0)
-  {
-    fprintf(stderr, "[ERROR] Argument %s is an empty string\n", argv[2]);
-    exit(1);
-  }
-
-  lBlockSize = strtol(cp, &cp, 10);
-
-  if (*cp != 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", argv[2], cp);
-    exit(1);
-  }
-
-  *blockSize = (int)lBlockSize;
+  parseArgsInt(argv[1], dimSize);
+  parseArgsInt(argv[2], blockSize);
 }
 
 __global__ void getIndicesOnDevice(int *block, int *thread, int *index)
