@@ -2,7 +2,7 @@ kind: Pod
 apiVersion: v1
 
 metadata:
-  name: user05-nvhpc-cuda
+  name: user05-nvhpc-cluster
 
 spec:
   # Add the server as an NFS volume for the pod

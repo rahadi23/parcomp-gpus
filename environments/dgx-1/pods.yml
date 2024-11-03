@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 
 metadata:
-  name: user05-nvhpc-cuda
+  name: user05-nvhpc-dgx
 
 spec:
   restartPolicy: Never
