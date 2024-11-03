@@ -255,7 +255,7 @@ int main(int argc, char const *argv[])
   }
   // Transefr results from device to host
   cudaMemcpy(h_c, d_c, sizeof(int) * m * k, cudaMemcpyDeviceToHost);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
   // time counting terminate
   cudaEventRecord(stop, 0);
   cudaEventSynchronize(stop);
