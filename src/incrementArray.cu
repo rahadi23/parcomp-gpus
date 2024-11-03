@@ -88,6 +88,7 @@ int main(int argc, char *argv[])
 
   printf("\n----------------------------------------------------------------------------------------------\n");
   printf("|         N |  gridSize | blockSize |      isOk |      gpuTime |      cpuTime |      speedUp |\n");
+  printf("|           |  (nBlock) | (nThread) |           |         (ms) |         (ms) |              |\n");
   printf("----------------------------------------------------------------------------------------------\n");
 
   for (k = 0; k < NIter; k++)
