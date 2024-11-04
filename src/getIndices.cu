@@ -42,7 +42,7 @@ void parseArgsInt(char *arg, int *val)
   *val = (int)lVal;
 }
 
-void parseArgs(int argc, char *argv[], int *gridSize, int *blockSize)
+void parseArgs(int argc, char *argv[], int *gridSize, int *blockSize, char *logFileName[])
 {
   // Check for the right number of arguments
   if (argc != 3)
@@ -67,8 +67,9 @@ __global__ void getIndicesOnDevice(int *block, int *thread, int *index)
 int main(int argc, char *argv[])
 {
   int gridSize, blockSize, *h_block, *d_block, *h_thread, *d_thread, *h_index, *d_index;
+  char *logFileName;
 
-  parseArgs(argc, argv, &gridSize, &blockSize);
+  parseArgs(argc, argv, &gridSize, &blockSize, &logFileName);
 
   int N = gridSize * blockSize;
 
@@ -89,6 +90,13 @@ int main(int argc, char *argv[])
   cudaMemcpy(h_thread, d_thread, memSize, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_index, d_index, memSize, cudaMemcpyDeviceToHost);
 
+  char *logFileName = (char *)malloc(25 * sizeof(char));
+
+  sprintf(logFileName, "logs/get-indices_%02d-%02d.csv", gridSize, blockSize);
+
+  FILE *logFile = fopen(logFileName, "a");
+  fprintf(logFile, "i,block,thread,index\n");
+
   printf("\nGrid Size: %6d  Block Size: %6d\n", gridSize, blockSize);
 
   printf("-------------------------------------\n");
@@ -98,6 +106,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i < N; i++)
   {
     printf("| %6d | %6d | %6d | %6d |\n", i, h_block[i], h_thread[i], h_index[i]);
+    fprintf(logFile, "%d,%d,%d,%d\n", i, h_block[i], h_thread[i], h_index[i]);
   }
 
   printf("-------------------------------------\n");
