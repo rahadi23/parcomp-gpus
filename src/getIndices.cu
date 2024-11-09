@@ -67,7 +67,7 @@ __global__ void getIndicesOnDevice(int *block, int *thread, int *index)
 int main(int argc, char *argv[])
 {
   int gridSize, blockSize, *h_block, *d_block, *h_thread, *d_thread, *h_index, *d_index;
-  char *logFileName;
+  char *logFileName = (char *)malloc(25 * sizeof(char));
 
   parseArgs(argc, argv, &gridSize, &blockSize, &logFileName);
 
@@ -89,8 +89,6 @@ int main(int argc, char *argv[])
   cudaMemcpy(h_block, d_block, memSize, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_thread, d_thread, memSize, cudaMemcpyDeviceToHost);
   cudaMemcpy(h_index, d_index, memSize, cudaMemcpyDeviceToHost);
-
-  char *logFileName = (char *)malloc(25 * sizeof(char));
 
   sprintf(logFileName, "logs/get-indices_%02d-%02d.csv", gridSize, blockSize);
 
