@@ -53,17 +53,18 @@ int main(int argc, char *argv[])
   NIter = (NMax - NMin) / NInc + 1;
   blockIter = (blockMax - blockMin) / blockInc + 1;
 
-  printf("\n----------------------------------------------------------------------------------------------\n");
-  printf("|         N |  gridSize | blockSize |      isOk |      gpuTime |      cpuTime |      speedUp |\n");
-  printf("|           |  (nBlock) | (nThread) |           |         (ms) |         (ms) |              |\n");
-  printf("----------------------------------------------------------------------------------------------\n");
+  printf("\n-------------------------------------------------------------------------------------------------\n");
+  printf("|          N |   gridSize |  blockSize |      isOk |      gpuTime |      cpuTime |      speedUp |\n");
+  printf("|            |   (nBlock) |  (nThread) |           |         (ms) |         (ms) |              |\n");
+  printf("-------------------------------------------------------------------------------------------------\n");
 
   for (k = 0; k < NIter; k++)
   {
     for (j = 0; j < blockIter; j++)
     {
       float *a_h, *b_h; // pointers to host memory
-      int i, N = NMin + k * NInc, blockSize = blockMin + j * blockInc;
+      int i;
+      unsigned long N = NMin + k * NInc, blockSize = blockMin + j * blockInc;
       size_t size = N * sizeof(float);
 
       // allocate arrays on host
@@ -95,7 +96,7 @@ int main(int argc, char *argv[])
 
       // do calculation on device:
       // Part 1 of 2. Compute execution configuration
-      int gridSize = N / blockSize + (N % blockSize == 0 ? 0 : 1);
+      unsigned long gridSize = N / blockSize + (N % blockSize == 0 ? 0 : 1);
 
       // Part 2 of 2. Call incrementArrayOnDevice kernel
       incrementArrayOnDevice<<<gridSize, blockSize>>>(a_d, N);
@@ -131,7 +132,7 @@ int main(int argc, char *argv[])
       }
 
       // assert(resultIsOk);
-      printf("| %9d | %9d | %9d | %9d | %12.8f | %12.8f | %12.8f |\n", N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, cpu_elapsed_time_ms, cpu_elapsed_time_ms / gpu_elapsed_time_ms);
+      printf("| %10ld | %10ld | %10ld | %9d | %12.8f | %12.8f | %12.8f |\n", N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, cpu_elapsed_time_ms, cpu_elapsed_time_ms / gpu_elapsed_time_ms);
 
       // cleanup
       free(a_h);
@@ -140,5 +141,5 @@ int main(int argc, char *argv[])
     }
   }
 
-  printf("----------------------------------------------------------------------------------------------\n\n");
+  printf("-------------------------------------------------------------------------------------------------\n\n");
 }
