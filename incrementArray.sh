@@ -24,8 +24,8 @@ BLOCK_INC=$MAX_THREADS_PER_BLOCK
 echo $CTS >> $LOG_FILE
 
 echo "N_MIN    : $N_MIN (${N_MIN_IN_MB}MB)" >> $LOG_FILE
-echo "N_INC    : $N_INC (${N_INC_IN_MB}MB)" >> $LOG_FILE
 echo "N_MAX    : $N_MAX (${N_MAX_IN_MB}MB)" >> $LOG_FILE
+echo "N_INC    : $N_INC (${N_INC_IN_MB}MB)" >> $LOG_FILE
 echo "BLOCK_MIN: $BLOCK_MIN" >> $LOG_FILE
 echo "BLOCK_MAX: $BLOCK_MAX" >> $LOG_FILE
 echo "BLOCK_INC: $BLOCK_INC" >> $LOG_FILE
