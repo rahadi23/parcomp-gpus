@@ -13,11 +13,13 @@
 #include <assert.h>
 #include <cuda_runtime.h>
 #include <sys/time.h>
+#include "../utils/helper.cuh"
 
 extern "C"
 {
 #include "utils/helper.h"
 #include "utils/sequential.h"
+#include "../utils/helper.h"
 }
 
 // vecVec
@@ -33,15 +35,15 @@ extern "C"
  * Input: pointer to 1D-array-stored matrix, 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void matVec(float *A, float *b, float *out)
+__global__ void matVec(float *A, float *b, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE)
+	if (index_x < N)
 	{
 		float tmp = 0;
-		for (int i = 0; i < SIZE; i++)
+		for (int i = 0; i < N; i++)
 		{
-			tmp += b[i] * A[SIZE * index_x + i];
+			tmp += b[i] * A[N * index_x + i];
 		}
 		out[index_x] = tmp;
 	}
@@ -53,19 +55,19 @@ __global__ void matVec(float *A, float *b, float *out)
  * Input: pointer to 1D-array-stored matrix, 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void matVec2(float *A, float *b, float *out)
+__global__ void matVec2(float *A, float *b, float *out, int N)
 {
 	__shared__ float b_shared[NB_ELEM_MAT];
 
 	int effective_block_width;
-	if ((blockIdx.x + 1) * NB_ELEM_MAT <= SIZE)
+	if ((blockIdx.x + 1) * NB_ELEM_MAT <= N)
 	{
 		effective_block_width = NB_ELEM_MAT;
 	}
 	else
 	{
 		// needed to avoid overflow in next row
-		effective_block_width = SIZE % NB_ELEM_MAT;
+		effective_block_width = N % NB_ELEM_MAT;
 	}
 
 	if (threadIdx.x < effective_block_width)
@@ -76,12 +78,12 @@ __global__ void matVec2(float *A, float *b, float *out)
 	int idy = blockIdx.y * BLOCK_SIZE_MAT + threadIdx.x;
 	float tmp_scal = 0.0;
 	// threads outside matrix dimension are not needed (vertical)
-	if (idy < SIZE)
+	if (idy < N)
 	{
 		for (int i = 0; i < effective_block_width; i++)
 		{
 			// take advantage of symmetric matrix for coalesced memory access
-			tmp_scal += b_shared[i] * A(blockIdx.x * NB_ELEM_MAT + i, idy);
+			tmp_scal += b_shared[i] * A(blockIdx.x * NB_ELEM_MAT + i, idy, N);
 		}
 		atomicAdd(out + idy, tmp_scal);
 	}
@@ -92,10 +94,10 @@ __global__ void matVec2(float *A, float *b, float *out)
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the sum in memory at the location of the pointer out
  */
-__global__ void vecPlusVec(float *a, float *b, float *out)
+__global__ void vecPlusVec(float *a, float *b, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE)
+	if (index_x < N)
 	{
 		out[index_x] = b[index_x] + a[index_x];
 	}
@@ -107,10 +109,10 @@ __global__ void vecPlusVec(float *a, float *b, float *out)
  * Stores the sum in memory at the location of the pointer out
  * Also 0's the vector b
  */
-__global__ void vecPlusVec2(float *a, float *b, float *out)
+__global__ void vecPlusVec2(float *a, float *b, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE)
+	if (index_x < N)
 	{
 		out[index_x] = b[index_x] + a[index_x];
 		b[index_x] = 0.0;
@@ -122,10 +124,10 @@ __global__ void vecPlusVec2(float *a, float *b, float *out)
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the sum in memory at the location of the pointer out
  */
-__global__ void vecMinVec(float *a, float *b, float *out)
+__global__ void vecMinVec(float *a, float *b, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE)
+	if (index_x < N)
 	{
 		out[index_x] = a[index_x] - b[index_x];
 	}
@@ -137,13 +139,13 @@ __global__ void vecMinVec(float *a, float *b, float *out)
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void vecVec(float *a, float *b, float *out)
+__global__ void vecVec(float *a, float *b, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
 	float tmp = 0.0;
 	if (index_x == 0)
 	{
-		for (int i = 0; i < SIZE; i++)
+		for (int i = 0; i < N; i++)
 		{
 			tmp += b[i] * a[i];
 		}
@@ -157,7 +159,7 @@ __global__ void vecVec(float *a, float *b, float *out)
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void vecVec2(float *a, float *b, float *out)
+__global__ void vecVec2(float *a, float *b, float *out, int N)
 {
 	// each block has it's own shared_tmp of size BLOCK_DIM_VEC
 	__shared__ float shared_tmp[BLOCK_DIM_VEC];
@@ -168,7 +170,7 @@ __global__ void vecVec2(float *a, float *b, float *out)
 		*out = 0.0;
 	}
 
-	if (blockIdx.x * blockDim.x + threadIdx.x < SIZE)
+	if (blockIdx.x * blockDim.x + threadIdx.x < N)
 	{
 		shared_tmp[threadIdx.x] = a[blockIdx.x * blockDim.x + threadIdx.x] * b[blockIdx.x * blockDim.x + threadIdx.x];
 	}
@@ -201,10 +203,10 @@ __global__ void vecVec2(float *a, float *b, float *out)
  * Input: pointer to scalar, pointer to 1D-array-stored vector
  * Stores the sum in memory at the location of the pointer out
  */
-__global__ void scalarVec(float *scalar, float *a, float *out)
+__global__ void scalarVec(float *scalar, float *a, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE)
+	if (index_x < N)
 	{
 		out[index_x] = a[index_x] * *scalar;
 	}
@@ -214,10 +216,10 @@ __global__ void scalarVec(float *scalar, float *a, float *out)
  * Copies the content of vector in to vector out
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  */
-__global__ void memCopy(float *in, float *out)
+__global__ void memCopy(float *in, float *out, int N)
 {
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE)
+	if (index_x < N)
 	{
 		out[index_x] = in[index_x];
 	}
@@ -243,135 +245,198 @@ __global__ void divide(float *num, float *den, float *out)
  */
 void solveCG_cuda(float *A, float *b, float *x, float *p, float *r, float *temp,
 									float *alpha, float *beta, float *r_norm, float *r_norm_old,
-									float *temp_scal, float *h_x, float *h_r_norm)
+									float *temp_scal, float *h_x, float *h_r_norm, int *cnt,
+									int N, int maxIter, float eps)
 {
 
 	dim3 vec_block_dim(BLOCK_DIM_VEC);
-	dim3 vec_grid_dim((SIZE + BLOCK_DIM_VEC - 1) / BLOCK_DIM_VEC);
+	dim3 vec_grid_dim((N + BLOCK_DIM_VEC - 1) / BLOCK_DIM_VEC);
 
-	dim3 mat_grid_dim((SIZE + NB_ELEM_MAT - 1) / NB_ELEM_MAT, (SIZE + BLOCK_SIZE_MAT - 1) / BLOCK_SIZE_MAT);
+	dim3 mat_grid_dim((N + NB_ELEM_MAT - 1) / NB_ELEM_MAT, (N + BLOCK_SIZE_MAT - 1) / BLOCK_SIZE_MAT);
 	dim3 mat_block_dim(BLOCK_SIZE_MAT);
 
-	vecVec2<<<vec_grid_dim, vec_block_dim>>>(r, r, r_norm_old);
+	vecVec2<<<vec_grid_dim, vec_block_dim>>>(r, r, r_norm_old, N);
 	int k = 0;
-	long micro_begin_gpu = getMicrotime();
-	while ((k < MAX_ITER) && (*h_r_norm > EPS))
+	while ((k < maxIter) && (*h_r_norm > eps))
 	{
 		// temp = A * p (only compute matrix vector product once)
-		matVec2<<<mat_grid_dim, mat_block_dim>>>(A, p, temp);
+		matVec2<<<mat_grid_dim, mat_block_dim>>>(A, p, temp, N);
 
 		// alpha_k = ...
-		vecVec2<<<vec_grid_dim, vec_block_dim>>>(p, temp, temp_scal);
+		vecVec2<<<vec_grid_dim, vec_block_dim>>>(p, temp, temp_scal, N);
 		divide<<<1, 1>>>(r_norm_old, temp_scal, alpha);
 
 		// r_{k+1} = ...
-		scalarVec<<<vec_grid_dim, vec_block_dim>>>(alpha, temp, temp);
-		vecMinVec<<<vec_grid_dim, vec_block_dim>>>(r, temp, r);
+		scalarVec<<<vec_grid_dim, vec_block_dim>>>(alpha, temp, temp, N);
+		vecMinVec<<<vec_grid_dim, vec_block_dim>>>(r, temp, r, N);
 
 		// x_{k+1} = ...
-		scalarVec<<<vec_grid_dim, vec_block_dim>>>(alpha, p, temp);
-		vecPlusVec<<<vec_grid_dim, vec_block_dim>>>(x, temp, x);
+		scalarVec<<<vec_grid_dim, vec_block_dim>>>(alpha, p, temp, N);
+		vecPlusVec<<<vec_grid_dim, vec_block_dim>>>(x, temp, x, N);
 
 		// beta_k = ...
-		vecVec2<<<vec_grid_dim, vec_block_dim>>>(r, r, r_norm);
+		vecVec2<<<vec_grid_dim, vec_block_dim>>>(r, r, r_norm, N);
 		divide<<<1, 1>>>(r_norm, r_norm_old, beta);
 
 		// p_{k+1} = ...
-		scalarVec<<<vec_grid_dim, vec_block_dim>>>(beta, p, temp);
-		vecPlusVec2<<<vec_grid_dim, vec_block_dim>>>(r, temp, p);
+		scalarVec<<<vec_grid_dim, vec_block_dim>>>(beta, p, temp, N);
+		vecPlusVec2<<<vec_grid_dim, vec_block_dim>>>(r, temp, p, N);
 
 		// set r_norm_old to r_norm
-		memCopy<<<1, 1>>>(r_norm, r_norm_old);
+		memCopy<<<1, 1>>>(r_norm, r_norm_old, N);
 
 		// copy to r_norm to CPU (to evaluate stop condition)
 		cudaMemcpy(h_r_norm, r_norm, sizeof(float), cudaMemcpyDeviceToHost);
 		k++;
 	}
-	long micro_end_gpu = getMicrotime();
-	printf("Time spent gpu per iter [s]: %e\n", (float)((micro_end_gpu - micro_begin_gpu) / k) / 1e6);
+	*cnt = k;
+	// printf("Time spent gpu per iter [s]: %e\n", (float)((micro_end_gpu - micro_begin_gpu) / k) / 1e6);
+}
+
+void parseArgs(int argc, char *argv[], int *NBase, int *NCnt, int *MAX_ITER, float *EPS, float *TOL)
+{
+	// Check for the right number of arguments
+	if (argc != 6)
+	{
+		fprintf(stderr, "[ERROR] Must be run with exactly 5 argument, found %d!\nUsage: %s <NMin> <NCnt> <MAX_ITER> <EPS> <TOL>\n", argc - 1, argv[0]);
+		exit(1);
+	}
+
+	parseArgsInt(argv[1], NBase);
+	parseArgsInt(argv[2], NCnt);
+	parseArgsInt(argv[3], MAX_ITER);
+	parseArgsFloat(argv[4], EPS);
+	parseArgsFloat(argv[5], TOL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN
 ////////////////////////////////////////////////////////////////////////////////
-int main()
+int main(int argc, char *argv[])
 {
-	// allocate host memory
-	float *h_A = generateA();
-	float *h_b = generateb();
-	float *h_x = (float *)calloc(SIZE, sizeof(float));
-	float *h_r_norm = (float *)malloc(sizeof(float));
-	*h_r_norm = 1.0;
+	int j, NBase, NCnt, MAX_ITER;
+	float EPS, TOL;
 
-	// allocate device memory
-	float *d_A;
-	float *d_b;
-	float *d_x;
-	float *d_p;
-	float *d_r;
-	float *d_temp;
-	cudaMalloc((void **)&d_A, SIZE * SIZE * sizeof(float));
-	cudaMalloc((void **)&d_b, SIZE * sizeof(float));
-	cudaMalloc((void **)&d_x, SIZE * sizeof(float));
-	cudaMalloc((void **)&d_p, SIZE * sizeof(float));
-	cudaMalloc((void **)&d_r, SIZE * sizeof(float));
-	cudaMalloc((void **)&d_temp, SIZE * sizeof(float));
+	parseArgs(argc, argv, &NBase, &NCnt, &MAX_ITER, &EPS, &TOL);
 
-	// copy host memory to device
-	cudaMemcpy(d_A, h_A, SIZE * SIZE * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_b, h_b, SIZE * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_x, h_x, SIZE * sizeof(float), cudaMemcpyHostToDevice);
-	// assume x0 = 0
-	cudaMemcpy(d_p, h_b, SIZE * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_r, h_b, SIZE * sizeof(float), cudaMemcpyHostToDevice);
+	printf("\n-------------------------------------------------------------------------------------------------------------------------\n");
+	printf("|          N |   gridSize |  blockSize |      isOk |      gpuTime |      cpuTime |   gpuIter |   cpuIter |      speedUp |\n");
+	printf("|            |   (nBlock) |  (nThread) |           |         (ms) |         (ms) |           |           |              |\n");
+	printf("-------------------------------------------------------------------------------------------------------------------------\n");
 
-	// 4 floats needed
-	float *d_beta;
-	float *d_alpha;
-	float *d_r_norm;
-	float *d_r_norm_old;
-	float *d_temp_scal;
-	cudaMalloc((void **)&d_beta, sizeof(float));
-	cudaMalloc((void **)&d_alpha, sizeof(float));
-	cudaMalloc((void **)&d_r_norm, sizeof(float));
-	cudaMalloc((void **)&d_r_norm_old, sizeof(float));
-	cudaMalloc((void **)&d_temp_scal, sizeof(float));
+	for (j = 0; j < NCnt; j++)
+	{
+		int N = pow(NBase, 2 * (j + 1));
 
-	// run the main function
-	solveCG_cuda(d_A, d_b, d_x, d_p, d_r, d_temp, d_alpha, d_beta, d_r_norm,
-							 d_r_norm_old, d_temp_scal, h_x, h_r_norm);
+		// allocate host memory
+		float *h_A = generateA(N);
+		float *h_b = generateb(N);
+		float *h_x = (float *)calloc(N, sizeof(float));
+		float *h_r_norm = (float *)malloc(sizeof(float));
+		*h_r_norm = 1.0;
 
-	// allocate memory for the result on host side
-	cudaDeviceSynchronize();
-	// copy result from device to host
-	cudaMemcpy(h_x, d_x, sizeof(float) * SIZE, cudaMemcpyDeviceToHost);
+		// times
+		int gpu_cnt, cpu_cnt;
+		float gpu_elapsed_time_ms, cpu_elapsed_time_ms;
 
-	// compare output with sequential version
-	float *h_x_seq = (float *)calloc(SIZE, sizeof(float));
-	solveCG_seq(h_A, h_b, h_x_seq);
+		cudaEvent_t start, stop;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
 
-	assert(moreOrLessEqual(h_x, h_x_seq) == 1);
+		cudaEventRecord(start, 0);
 
-	printf("\nAssertion passed!\n");
+		// allocate device memory
+		float *d_A;
+		float *d_b;
+		float *d_x;
+		float *d_p;
+		float *d_r;
+		float *d_temp;
+		cudaMalloc((void **)&d_A, N * N * sizeof(float));
+		cudaMalloc((void **)&d_b, N * sizeof(float));
+		cudaMalloc((void **)&d_x, N * sizeof(float));
+		cudaMalloc((void **)&d_p, N * sizeof(float));
+		cudaMalloc((void **)&d_r, N * sizeof(float));
+		cudaMalloc((void **)&d_temp, N * sizeof(float));
 
-	// cleanup memory host
-	free(h_A);
-	free(h_b);
-	free(h_x);
-	free(h_r_norm);
+		// copy host memory to device
+		cudaMemcpy(d_A, h_A, N * N * sizeof(float), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_b, h_b, N * sizeof(float), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_x, h_x, N * sizeof(float), cudaMemcpyHostToDevice);
+		// assume x0 = 0
+		cudaMemcpy(d_p, h_b, N * sizeof(float), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_r, h_b, N * sizeof(float), cudaMemcpyHostToDevice);
 
-	// cleanup memory device
-	cudaFree(d_A);
-	cudaFree(d_b);
-	cudaFree(d_x);
-	cudaFree(d_p);
-	cudaFree(d_r);
-	cudaFree(d_temp);
-	cudaFree(d_alpha);
-	cudaFree(d_beta);
-	cudaFree(d_r_norm);
-	cudaFree(d_r_norm_old);
-	cudaFree(d_temp_scal);
+		// 4 floats needed
+		float *d_beta;
+		float *d_alpha;
+		float *d_r_norm;
+		float *d_r_norm_old;
+		float *d_temp_scal;
+		cudaMalloc((void **)&d_beta, sizeof(float));
+		cudaMalloc((void **)&d_alpha, sizeof(float));
+		cudaMalloc((void **)&d_r_norm, sizeof(float));
+		cudaMalloc((void **)&d_r_norm_old, sizeof(float));
+		cudaMalloc((void **)&d_temp_scal, sizeof(float));
+
+		// run the main function
+		solveCG_cuda(d_A, d_b, d_x, d_p, d_r, d_temp, d_alpha, d_beta, d_r_norm,
+								 d_r_norm_old, d_temp_scal, h_x, h_r_norm, &gpu_cnt, N, MAX_ITER, EPS);
+
+		CUDACHECK(cudaPeekAtLastError());
+
+		// allocate memory for the result on host side
+		cudaDeviceSynchronize();
+
+		// copy result from device to host
+		cudaMemcpy(h_x, d_x, sizeof(float) * N, cudaMemcpyDeviceToHost);
+
+		cudaEventRecord(stop, 0);
+		cudaEventSynchronize(stop);
+
+		// compute time elapse on GPU computing
+		cudaEventElapsedTime(&gpu_elapsed_time_ms, start, stop);
+
+		cudaEventRecord(start, 0);
+
+		// compare output with sequential version
+		float *h_x_seq = (float *)calloc(N, sizeof(float));
+		solveCG_seq(h_A, h_b, h_x_seq, &cpu_cnt, N, MAX_ITER, EPS);
+
+		cudaEventRecord(stop, 0);
+		cudaEventSynchronize(stop);
+
+		// compute time elapse on CPU computing
+		cudaEventElapsedTime(&cpu_elapsed_time_ms, start, stop);
+
+		// assert(moreOrLessEqual(h_x, h_x_seq, N, TOL) == 1);
+		int resultIsOk = moreOrLessEqual(h_x, h_x_seq, N, TOL) == 1;
+
+		printf("| %10d | %10d | %10d | %9d | %12.9f | %12.9f | %9d | %9d | %12.9f |\n", N, (N + BLOCK_DIM_VEC - 1) / BLOCK_DIM_VEC, BLOCK_DIM_VEC, resultIsOk, gpu_elapsed_time_ms, cpu_elapsed_time_ms, gpu_cnt, cpu_cnt, cpu_elapsed_time_ms / gpu_elapsed_time_ms);
+
+		// printf("\nAssertion passed!\n");
+
+		// cleanup memory host
+		free(h_A);
+		free(h_b);
+		free(h_x);
+		free(h_r_norm);
+
+		// cleanup memory device
+		cudaFree(d_A);
+		cudaFree(d_b);
+		cudaFree(d_x);
+		cudaFree(d_p);
+		cudaFree(d_r);
+		cudaFree(d_temp);
+		cudaFree(d_alpha);
+		cudaFree(d_beta);
+		cudaFree(d_r_norm);
+		cudaFree(d_r_norm_old);
+		cudaFree(d_temp_scal);
+	}
+
+	printf("-------------------------------------------------------------------------------------------------------------------------\n\n");
 
 	return 0;
 }
