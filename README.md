@@ -1,8 +1,70 @@
 # Parallel Computing with GPU
 
-## Parallel Computing on DGX-1 Cluster
+## Development
 
-### Preparation
+### Add a new task
+
+To add a new task, create a task folder in `src` directory
+
+```
+mkdir -p mytask
+```
+
+Inside the folder, create a `main.cu` file. This will be the entry point of the task.
+
+```
+nano main.cu
+```
+
+### Add a task util
+
+To include a specific utils for a task, create a `utils` folder inside the task's folder
+
+```
+mkdir -p mytask/utils
+```
+
+Inside the folder, create a utils file
+
+```
+nano helper.h
+nano helper.c
+```
+
+And include the header file to the `main.cu` file
+
+```C
+extern "C"
+{
+#include "utils/helper.h"
+}
+```
+
+### Global utils
+
+There is also `src/utils` directory which is the global utils folder. The code inside this directory will be compiled for all tasks.
+
+### Compiling the tasks
+
+The tasks can be built using the `make` command
+
+```
+make
+```
+
+### Running the tasks
+
+The compiled tasks will be available in `out` directory as `<taskname>.o`. To run `mytask.o`, use the following command:
+
+```
+./out/mytask.o
+```
+
+## Deployment
+
+### DGX-1 Cluster
+
+#### Preparation
 
 Create a pod file, for example `pods.yml`
 
@@ -38,7 +100,7 @@ spec:
 ```
 or use `environments/dgx-1/pods.yml`
 
-### Deployment
+#### Deployment
 
 Run the pod with the following command:
 
@@ -49,7 +111,7 @@ kubectl apply -f ./pods.yml
 We assume that the kubectl's authentication is already set in the default config `~/.kube/config` to access the cluster. You can also set `--kubeconfig` flag to use a custom config file.
 
 
-### Monitoring
+#### Monitoring
 
 Observe the pod creation with the following command:
 
@@ -69,7 +131,7 @@ kubectl get pods
 
 If everything went well, the pod's status should be 'running'.
 
-### Usage
+#### Usage
 
 We can use the pod by `exec`-ing to the pod:
 
@@ -79,20 +141,20 @@ kubectl exec -it user05-nvhpc-cuda -- /bin/bash
 
 After that, we can do whatever we want inside the pod. For example:
 
-#### Check GPU information
+##### Check GPU information
 
 ```
 nvidia-smi
 ```
 
-#### Compile & run a CUDA program
+##### Compile & run a CUDA program
 
 ```
 nvcc program.cu -o program.o
 ./program.o
 ```
 
-### Post Usage
+#### Post Usage
 
 We can do cleanup to pods that are no longer used by deleting it using the following command:
 
