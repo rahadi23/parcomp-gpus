@@ -18,28 +18,9 @@ inline void cudaCheck(cudaError_t error_code, const char *file, int line)
   }
 }
 
-void parseArgsInt(char *arg, int *val)
+extern "C"
 {
-  char *cp;
-  long lVal;
-
-  cp = arg;
-
-  if (*cp == 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is an empty string\n", arg);
-    exit(1);
-  }
-
-  lVal = strtol(cp, &cp, 10);
-
-  if (*cp != 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", arg, cp);
-    exit(1);
-  }
-
-  *val = (int)lVal;
+#include "../utils/helper.h"
 }
 
 void parseArgs(int argc, char *argv[], int *gridSize, int *blockSize, char *logFileName[])

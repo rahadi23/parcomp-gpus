@@ -14,15 +14,16 @@
 #include <cuda_runtime.h>
 #include <sys/time.h>
 
-extern "C" {
-#include "helper.h"
-#include "sequential.h"
+extern "C"
+{
+#include "utils/helper.h"
+#include "utils/sequential.h"
 }
 
 // vecVec
 #define BLOCK_DIM_VEC 32
 
-//matVec
+// matVec
 #define NB_ELEM_MAT 32
 #define BLOCK_SIZE_MAT 32
 
@@ -32,11 +33,14 @@ extern "C" {
  * Input: pointer to 1D-array-stored matrix, 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void matVec(float* A, float* b, float* out) {
+__global__ void matVec(float *A, float *b, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE) {
+	if (index_x < SIZE)
+	{
 		float tmp = 0;
-		for (int i = 0; i < SIZE; i++) {
+		for (int i = 0; i < SIZE; i++)
+		{
 			tmp += b[i] * A[SIZE * index_x + i];
 		}
 		out[index_x] = tmp;
@@ -49,14 +53,17 @@ __global__ void matVec(float* A, float* b, float* out) {
  * Input: pointer to 1D-array-stored matrix, 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void matVec2(float* A, float* b, float* out) {
+__global__ void matVec2(float *A, float *b, float *out)
+{
 	__shared__ float b_shared[NB_ELEM_MAT];
 
 	int effective_block_width;
-	if ((blockIdx.x + 1) * NB_ELEM_MAT <= SIZE) {
+	if ((blockIdx.x + 1) * NB_ELEM_MAT <= SIZE)
+	{
 		effective_block_width = NB_ELEM_MAT;
 	}
-	else {
+	else
+	{
 		// needed to avoid overflow in next row
 		effective_block_width = SIZE % NB_ELEM_MAT;
 	}
@@ -69,8 +76,10 @@ __global__ void matVec2(float* A, float* b, float* out) {
 	int idy = blockIdx.y * BLOCK_SIZE_MAT + threadIdx.x;
 	float tmp_scal = 0.0;
 	// threads outside matrix dimension are not needed (vertical)
-	if (idy < SIZE) {
-		for (int i = 0; i < effective_block_width; i++) {
+	if (idy < SIZE)
+	{
+		for (int i = 0; i < effective_block_width; i++)
+		{
 			// take advantage of symmetric matrix for coalesced memory access
 			tmp_scal += b_shared[i] * A(blockIdx.x * NB_ELEM_MAT + i, idy);
 		}
@@ -83,9 +92,11 @@ __global__ void matVec2(float* A, float* b, float* out) {
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the sum in memory at the location of the pointer out
  */
-__global__ void vecPlusVec(float* a, float* b, float* out) {
+__global__ void vecPlusVec(float *a, float *b, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE) {
+	if (index_x < SIZE)
+	{
 		out[index_x] = b[index_x] + a[index_x];
 	}
 }
@@ -96,9 +107,11 @@ __global__ void vecPlusVec(float* a, float* b, float* out) {
  * Stores the sum in memory at the location of the pointer out
  * Also 0's the vector b
  */
-__global__ void vecPlusVec2(float* a, float* b, float* out) {
+__global__ void vecPlusVec2(float *a, float *b, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE) {
+	if (index_x < SIZE)
+	{
 		out[index_x] = b[index_x] + a[index_x];
 		b[index_x] = 0.0;
 	}
@@ -109,9 +122,11 @@ __global__ void vecPlusVec2(float* a, float* b, float* out) {
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the sum in memory at the location of the pointer out
  */
-__global__ void vecMinVec(float* a, float* b, float* out) {
+__global__ void vecMinVec(float *a, float *b, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE) {
+	if (index_x < SIZE)
+	{
 		out[index_x] = a[index_x] - b[index_x];
 	}
 }
@@ -122,11 +137,14 @@ __global__ void vecMinVec(float* a, float* b, float* out) {
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void vecVec(float* a, float* b, float* out) {
+__global__ void vecVec(float *a, float *b, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
 	float tmp = 0.0;
-	if (index_x == 0) {
-		for (int i = 0; i < SIZE; i++) {
+	if (index_x == 0)
+	{
+		for (int i = 0; i < SIZE; i++)
+		{
 			tmp += b[i] * a[i];
 		}
 		*out = tmp;
@@ -139,35 +157,41 @@ __global__ void vecVec(float* a, float* b, float* out) {
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * Stores the product in memory at the location of the pointer out
  */
-__global__ void vecVec2(float* a, float* b, float* out) {
+__global__ void vecVec2(float *a, float *b, float *out)
+{
 	// each block has it's own shared_tmp of size BLOCK_DIM_VEC
 	__shared__ float shared_tmp[BLOCK_DIM_VEC];
 
 	// needed for atomicAdd
-	if (threadIdx.x + blockDim.x * blockIdx.x == 0) {
+	if (threadIdx.x + blockDim.x * blockIdx.x == 0)
+	{
 		*out = 0.0;
 	}
 
-
-	if (blockIdx.x * blockDim.x + threadIdx.x < SIZE) {
-		shared_tmp[threadIdx.x] = a[blockIdx.x * blockDim.x + threadIdx.x]
-				* b[blockIdx.x * blockDim.x + threadIdx.x];
-	} else {
+	if (blockIdx.x * blockDim.x + threadIdx.x < SIZE)
+	{
+		shared_tmp[threadIdx.x] = a[blockIdx.x * blockDim.x + threadIdx.x] * b[blockIdx.x * blockDim.x + threadIdx.x];
+	}
+	else
+	{
 		// needed for the reduction
 		shared_tmp[threadIdx.x] = 0.0;
 	}
 
 	// reduction within block
-	for (int i = blockDim.x / 2; i >= 1; i = i / 2) {
+	for (int i = blockDim.x / 2; i >= 1; i = i / 2)
+	{
 		// threads access memory position written by other threads so sync is needed
 		__syncthreads();
-		if (threadIdx.x < i) {
+		if (threadIdx.x < i)
+		{
 			shared_tmp[threadIdx.x] += shared_tmp[threadIdx.x + i];
 		}
 	}
 
 	// atomic add the partial reduction in out
-	if (threadIdx.x == 0) {
+	if (threadIdx.x == 0)
+	{
 		atomicAdd(out, shared_tmp[0]);
 	}
 }
@@ -177,9 +201,11 @@ __global__ void vecVec2(float* a, float* b, float* out) {
  * Input: pointer to scalar, pointer to 1D-array-stored vector
  * Stores the sum in memory at the location of the pointer out
  */
-__global__ void scalarVec(float* scalar, float* a, float* out) {
+__global__ void scalarVec(float *scalar, float *a, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE) {
+	if (index_x < SIZE)
+	{
 		out[index_x] = a[index_x] * *scalar;
 	}
 }
@@ -188,9 +214,11 @@ __global__ void scalarVec(float* scalar, float* a, float* out) {
  * Copies the content of vector in to vector out
  * Input: pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  */
-__global__ void memCopy(float* in, float* out) {
+__global__ void memCopy(float *in, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x < SIZE) {
+	if (index_x < SIZE)
+	{
 		out[index_x] = in[index_x];
 	}
 }
@@ -200,9 +228,11 @@ __global__ void memCopy(float* in, float* out) {
  * Input: pointer to scalar, pointer to scalar
  * Stores the quotient in memory at the location of the pointer out
  */
-__global__ void divide(float* num, float* den, float* out) {
+__global__ void divide(float *num, float *den, float *out)
+{
 	unsigned int index_x = blockIdx.x * blockDim.x + threadIdx.x;
-	if (index_x == 0) {
+	if (index_x == 0)
+	{
 		*out = *num / *den;
 	}
 }
@@ -211,9 +241,10 @@ __global__ void divide(float* num, float* den, float* out) {
  * Main CG solver
  * All the given pointers are device pointers, with correct initial values
  */
-void solveCG_cuda(float* A, float* b, float* x, float* p, float* r, float* temp,
-		float* alpha, float* beta, float* r_norm, float* r_norm_old,
-		float* temp_scal, float* h_x, float* h_r_norm) {
+void solveCG_cuda(float *A, float *b, float *x, float *p, float *r, float *temp,
+									float *alpha, float *beta, float *r_norm, float *r_norm_old,
+									float *temp_scal, float *h_x, float *h_r_norm)
+{
 
 	dim3 vec_block_dim(BLOCK_DIM_VEC);
 	dim3 vec_grid_dim((SIZE + BLOCK_DIM_VEC - 1) / BLOCK_DIM_VEC);
@@ -224,7 +255,8 @@ void solveCG_cuda(float* A, float* b, float* x, float* p, float* r, float* temp,
 	vecVec2<<<vec_grid_dim, vec_block_dim>>>(r, r, r_norm_old);
 	int k = 0;
 	long micro_begin_gpu = getMicrotime();
-	while ((k < MAX_ITER) && (*h_r_norm > EPS)) {
+	while ((k < MAX_ITER) && (*h_r_norm > EPS))
+	{
 		// temp = A * p (only compute matrix vector product once)
 		matVec2<<<mat_grid_dim, mat_block_dim>>>(A, p, temp);
 
@@ -254,38 +286,36 @@ void solveCG_cuda(float* A, float* b, float* x, float* p, float* r, float* temp,
 		// copy to r_norm to CPU (to evaluate stop condition)
 		cudaMemcpy(h_r_norm, r_norm, sizeof(float), cudaMemcpyDeviceToHost);
 		k++;
-
 	}
 	long micro_end_gpu = getMicrotime();
-	printf("Time spent gpu per iter [s]: %e\n", (float) ((micro_end_gpu - micro_begin_gpu)/k) / 1e6);
+	printf("Time spent gpu per iter [s]: %e\n", (float)((micro_end_gpu - micro_begin_gpu) / k) / 1e6);
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // MAIN
 ////////////////////////////////////////////////////////////////////////////////
-int main() {
+int main()
+{
 	// allocate host memory
-	float* h_A = generateA();
-	float* h_b = generateb();
-	float* h_x = (float *) calloc(SIZE, sizeof(float));
-	float* h_r_norm = (float *) malloc(sizeof(float));
+	float *h_A = generateA();
+	float *h_b = generateb();
+	float *h_x = (float *)calloc(SIZE, sizeof(float));
+	float *h_r_norm = (float *)malloc(sizeof(float));
 	*h_r_norm = 1.0;
 
 	// allocate device memory
-	float* d_A;
-	float* d_b;
-	float* d_x;
-	float* d_p;
-	float* d_r;
-	float* d_temp;
-	cudaMalloc((void **) &d_A, SIZE * SIZE * sizeof(float));
-	cudaMalloc((void **) &d_b, SIZE * sizeof(float));
-	cudaMalloc((void **) &d_x, SIZE * sizeof(float));
-	cudaMalloc((void **) &d_p, SIZE * sizeof(float));
-	cudaMalloc((void **) &d_r, SIZE * sizeof(float));
-	cudaMalloc((void **) &d_temp, SIZE * sizeof(float));
+	float *d_A;
+	float *d_b;
+	float *d_x;
+	float *d_p;
+	float *d_r;
+	float *d_temp;
+	cudaMalloc((void **)&d_A, SIZE * SIZE * sizeof(float));
+	cudaMalloc((void **)&d_b, SIZE * sizeof(float));
+	cudaMalloc((void **)&d_x, SIZE * sizeof(float));
+	cudaMalloc((void **)&d_p, SIZE * sizeof(float));
+	cudaMalloc((void **)&d_r, SIZE * sizeof(float));
+	cudaMalloc((void **)&d_temp, SIZE * sizeof(float));
 
 	// copy host memory to device
 	cudaMemcpy(d_A, h_A, SIZE * SIZE * sizeof(float), cudaMemcpyHostToDevice);
@@ -296,20 +326,20 @@ int main() {
 	cudaMemcpy(d_r, h_b, SIZE * sizeof(float), cudaMemcpyHostToDevice);
 
 	// 4 floats needed
-	float* d_beta;
-	float* d_alpha;
-	float* d_r_norm;
-	float* d_r_norm_old;
-	float* d_temp_scal;
-	cudaMalloc((void **) &d_beta, sizeof(float));
-	cudaMalloc((void **) &d_alpha, sizeof(float));
-	cudaMalloc((void **) &d_r_norm, sizeof(float));
-	cudaMalloc((void **) &d_r_norm_old, sizeof(float));
-	cudaMalloc((void **) &d_temp_scal, sizeof(float));
+	float *d_beta;
+	float *d_alpha;
+	float *d_r_norm;
+	float *d_r_norm_old;
+	float *d_temp_scal;
+	cudaMalloc((void **)&d_beta, sizeof(float));
+	cudaMalloc((void **)&d_alpha, sizeof(float));
+	cudaMalloc((void **)&d_r_norm, sizeof(float));
+	cudaMalloc((void **)&d_r_norm_old, sizeof(float));
+	cudaMalloc((void **)&d_temp_scal, sizeof(float));
 
 	// run the main function
 	solveCG_cuda(d_A, d_b, d_x, d_p, d_r, d_temp, d_alpha, d_beta, d_r_norm,
-			d_r_norm_old, d_temp_scal, h_x, h_r_norm);
+							 d_r_norm_old, d_temp_scal, h_x, h_r_norm);
 
 	// allocate memory for the result on host side
 	cudaDeviceSynchronize();
@@ -317,12 +347,12 @@ int main() {
 	cudaMemcpy(h_x, d_x, sizeof(float) * SIZE, cudaMemcpyDeviceToHost);
 
 	// compare output with sequential version
-	float* h_x_seq = (float *) calloc(SIZE, sizeof(float));
+	float *h_x_seq = (float *)calloc(SIZE, sizeof(float));
 	solveCG_seq(h_A, h_b, h_x_seq);
 
-    assert(moreOrLessEqual(h_x, h_x_seq) == 1);
+	assert(moreOrLessEqual(h_x, h_x_seq) == 1);
 
-    printf("\nAssertion passed!\n");
+	printf("\nAssertion passed!\n");
 
 	// cleanup memory host
 	free(h_A);

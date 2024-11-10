@@ -2,6 +2,11 @@
 #include <assert.h>
 #include <cuda.h>
 
+extern "C"
+{
+#include "../utils/helper.h"
+}
+
 #define CUDACHECK(err)                    \
   do                                      \
   {                                       \
@@ -16,30 +21,6 @@ inline void cudaCheck(cudaError_t error_code, const char *file, int line)
     fflush(stderr);
     exit(error_code);
   }
-}
-
-void parseArgsInt(char *arg, int *val)
-{
-  char *cp;
-  long lVal;
-
-  cp = arg;
-
-  if (*cp == 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is an empty string\n", arg);
-    exit(1);
-  }
-
-  lVal = strtol(cp, &cp, 10);
-
-  if (*cp != 0)
-  {
-    fprintf(stderr, "[ERROR] Argument '%s' is not an integer -- '%s'\n", arg, cp);
-    exit(1);
-  }
-
-  *val = (int)lVal;
 }
 
 void parseArgs(int argc, char *argv[], int *NMin, int *NMax, int *NInc, int *blockMin, int *blockMax, int *blockInc)
