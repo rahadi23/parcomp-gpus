@@ -8,7 +8,7 @@ extern "C"
 #include "../utils/helper.h"
 }
 
-void parseArgs(int argc, char *argv[], int *NMin, int *NMax, int *NInc, int *blockMin, int *blockMax, int *blockInc)
+void parseArgs(int argc, char *argv[], unsigned long *NMin, unsigned long *NMax, unsigned long *NInc, int *blockMin, int *blockMax, int *blockInc)
 {
   // Check for the right number of arguments
   if (argc != 7)
@@ -17,9 +17,9 @@ void parseArgs(int argc, char *argv[], int *NMin, int *NMax, int *NInc, int *blo
     exit(1);
   }
 
-  parseArgsInt(argv[1], NMin);
-  parseArgsInt(argv[2], NMax);
-  parseArgsInt(argv[3], NInc);
+  parseArgsULong(argv[1], NMin);
+  parseArgsULong(argv[2], NMax);
+  parseArgsULong(argv[3], NInc);
   parseArgsInt(argv[4], blockMin);
   parseArgsInt(argv[5], blockMax);
   parseArgsInt(argv[6], blockInc);
@@ -45,7 +45,8 @@ __global__ void incrementArrayOnDevice(float *a, int N)
 
 int main(int argc, char *argv[])
 {
-  int j, k, NMin, NMax, NInc, NIter, blockMin, blockMax, blockInc, blockIter;
+  int j, k, NIter, blockMin, blockMax, blockInc, blockIter;
+  unsigned long NMin, NMax, NInc;
 
   parseArgs(argc, argv, &NMin, &NMax, &NInc, &blockMin, &blockMax, &blockInc);
 
