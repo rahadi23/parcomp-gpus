@@ -129,6 +129,10 @@ int main(int argc, char *argv[])
       for (i = 0; i < N; i++)
       {
         resultIsOk = a_h[i] == b_h[i];
+        if (!resultIsOk)
+        {
+          break;
+        }
       }
 
       // assert(resultIsOk);
