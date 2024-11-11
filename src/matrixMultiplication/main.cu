@@ -8,6 +8,8 @@ extern "C"
 #include "../utils/helper.h"
 }
 
+#define LOG_FILE_NAME "logs/matrixMultiplication.csv"
+
 /*
 *********************************************************************
 function name: gpu_mult
@@ -173,6 +175,9 @@ int main(int argc, char *argv[])
   NIter = log10(NMax / NMin) / log10(NMult) + 1;
   blockIter = log10(blockMax / blockMin) / log10(blockMult) + 1;
 
+  FILE *logFile = fopen(LOG_FILE_NAME, "a");
+  fprintf(logFile, "k,l,N,grid_size,block_size,is_ok,gpu_time,gpu_shared_time,cpu_time,gpu_speedup,gpu_shared_speedup\n");
+
   printf("\n----------------------------------------------------------------------------------------------------------------------------\n");
   printf("|         N |  gridSize | blockSize |      isOk |      gpuTime |    gpuShTime |      cpuTime |   gpuSpeedUp | gpuShSpeedUp |\n");
   printf("|           |  (nBlock) | (nThread) |           |         (ms) |         (ms) |         (ms) |              |              |\n");
@@ -180,6 +185,8 @@ int main(int argc, char *argv[])
 
   for (k = 0; k < NIter; k++)
   {
+    float n_cpu_elapsed_time_ms = -1;
+
     for (l = 0; l < blockIter; l++)
     {
       unsigned long N = NMin * pow(NMult, k);
@@ -289,6 +296,11 @@ int main(int argc, char *argv[])
       cudaEventSynchronize(stop);
       cudaEventElapsedTime(&cpu_elapsed_time_ms, start, stop);
 
+      if (n_cpu_elapsed_time_ms < 0 || cpu_elapsed_time_ms < n_cpu_elapsed_time_ms)
+      {
+        n_cpu_elapsed_time_ms = cpu_elapsed_time_ms;
+      }
+
       // validate results computed by GPU
       int resultIsOk = 1;
 
@@ -305,8 +317,12 @@ int main(int argc, char *argv[])
         // printf("\n");
       }
 
-      // roughly compute speedup
-      printf("| %9ld | %9d | %9d | %9d | %12.8f | %12.8f | %12.8f | %12.8f | %12.8f |\n", N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms, cpu_elapsed_time_ms, cpu_elapsed_time_ms / gpu_elapsed_time_ms, cpu_elapsed_time_ms / gpu_shared_elapsed_time_ms);
+      float gpu_speedup = n_cpu_elapsed_time_ms / gpu_elapsed_time_ms,
+            gpu_shared_speedup = n_cpu_elapsed_time_ms / gpu_shared_elapsed_time_ms;
+
+      fprintf(logFile, "%d,%d,%ld,%d,%d,%d,%.8f,%.8f,%.8f,%.8f,%.8f\n", k, l, N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms, n_cpu_elapsed_time_ms, gpu_speedup, gpu_shared_speedup);
+
+      printf("| %9ld | %9d | %9d | %9d | %12.8f | %12.8f | %12.8f | %12.8f | %12.8f |\n", N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms, n_cpu_elapsed_time_ms, gpu_speedup, gpu_shared_speedup);
 
       // free memory
       cudaFree(d_a);
