@@ -121,7 +121,7 @@ int moreOrLessEqual(float *a, float *b, int N, float TOL)
  * Input: pointer to 1D-array-stored matrix, pointer to 1D-array-stored vector, pointer to 1D-array-stored vector
  * float* x is used as initial condition and the final output is written there as well
  */
-void solveCG_seq(float *A, float *b, float *x, int *cnt, int N,
+void solveCG_seq(float *A, float *b, float *x, float *r_norm, int *cnt, int N,
 								 int MAX_ITER, float EPS)
 {
 	// Initialize temporary variables
@@ -161,8 +161,12 @@ void solveCG_seq(float *A, float *b, float *x, int *cnt, int N,
 		rNormOld = rNorm;
 		k++;
 	}
+
 	// long micro_begin_seq = getMicrotime();
+
 	*cnt = k;
+	*r_norm = rNorm;
+
 	// printf("Time spent seq per iter [s]: %e\n", (float)((micro_end_seq - micro_begin_seq) / k) / 1e6);
 	// free temporary memory
 	free(p);
