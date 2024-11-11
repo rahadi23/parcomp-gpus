@@ -23,11 +23,13 @@ extern "C"
 }
 
 // vecVec
-#define BLOCK_DIM_VEC 32
+#define BLOCK_DIM_VEC 1024
 
 // matVec
 #define NB_ELEM_MAT 32
 #define BLOCK_SIZE_MAT 32
+
+#define LOG_FILE_NAME "logs/conjugateGradient.csv"
 
 /*
  * --Naive implementation--
@@ -289,6 +291,7 @@ void solveCG_cuda(float *A, float *b, float *x, float *p, float *r, float *temp,
 		cudaMemcpy(h_r_norm, r_norm, sizeof(float), cudaMemcpyDeviceToHost);
 		k++;
 	}
+
 	*cnt = k;
 	// printf("Time spent gpu per iter [s]: %e\n", (float)((micro_end_gpu - micro_begin_gpu) / k) / 1e6);
 }
@@ -298,7 +301,7 @@ void parseArgs(int argc, char *argv[], int *NBase, int *NCnt, int *MAX_ITER, flo
 	// Check for the right number of arguments
 	if (argc != 6)
 	{
-		fprintf(stderr, "[ERROR] Must be run with exactly 5 argument, found %d!\nUsage: %s <NMin> <NCnt> <MAX_ITER> <EPS> <TOL>\n", argc - 1, argv[0]);
+		fprintf(stderr, "[ERROR] Must be run with exactly 5 argument, found %d!\nUsage: %s <NBase> <NCnt> <MAX_ITER> <EPS> <TOL>\n", argc - 1, argv[0]);
 		exit(1);
 	}
 
@@ -319,10 +322,13 @@ int main(int argc, char *argv[])
 
 	parseArgs(argc, argv, &NBase, &NCnt, &MAX_ITER, &EPS, &TOL);
 
-	printf("\n-------------------------------------------------------------------------------------------------------------------------\n");
-	printf("|          N |   gridSize |  blockSize |      isOk |      gpuTime |      cpuTime |   gpuIter |   cpuIter |      speedUp |\n");
-	printf("|            |   (nBlock) |  (nThread) |           |         (ms) |         (ms) |           |           |              |\n");
-	printf("-------------------------------------------------------------------------------------------------------------------------\n");
+	FILE *logFile = fopen(LOG_FILE_NAME, "a");
+	fprintf(logFile, "j,N,grid_size,block_size,is_ok,gpu_time,cpu_time,gpu_r_norm,cpu_r_norm,gpu_iter,cpu_iter,speedup\n");
+
+	printf("\n----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+	printf("|          N |   gridSize |  blockSize |      isOk |         gpuTime |         cpuTime |        gpuRNorm |        cpuRNorm |   gpuIter |   cpuIter |         speedUp |\n");
+	printf("|            |   (nBlock) |  (nThread) |           |            (ms) |            (ms) |                 |                 |           |           |                 |\n");
+	printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
 
 	for (j = 0; j < NCnt; j++)
 	{
@@ -337,7 +343,7 @@ int main(int argc, char *argv[])
 
 		// times
 		int gpu_cnt, cpu_cnt;
-		float gpu_elapsed_time_ms, cpu_elapsed_time_ms;
+		float cpu_r_norm, gpu_elapsed_time_ms, cpu_elapsed_time_ms;
 
 		cudaEvent_t start, stop;
 		cudaEventCreate(&start);
@@ -401,7 +407,7 @@ int main(int argc, char *argv[])
 
 		// compare output with sequential version
 		float *h_x_seq = (float *)calloc(N, sizeof(float));
-		solveCG_seq(h_A, h_b, h_x_seq, &cpu_cnt, N, MAX_ITER, EPS);
+		solveCG_seq(h_A, h_b, h_x_seq, &cpu_r_norm, &cpu_cnt, N, MAX_ITER, EPS);
 
 		cudaEventRecord(stop, 0);
 		cudaEventSynchronize(stop);
@@ -411,8 +417,17 @@ int main(int argc, char *argv[])
 
 		// assert(moreOrLessEqual(h_x, h_x_seq, N, TOL) == 1);
 		int resultIsOk = moreOrLessEqual(h_x, h_x_seq, N, TOL) == 1;
+		int gridSize = (N + BLOCK_DIM_VEC - 1) / BLOCK_DIM_VEC;
+		int blockSize = BLOCK_DIM_VEC;
+		float speedup = cpu_elapsed_time_ms / gpu_elapsed_time_ms;
 
-		printf("| %10d | %10d | %10d | %9d | %12.9f | %12.9f | %9d | %9d | %12.9f |\n", N, (N + BLOCK_DIM_VEC - 1) / BLOCK_DIM_VEC, BLOCK_DIM_VEC, resultIsOk, gpu_elapsed_time_ms, cpu_elapsed_time_ms, gpu_cnt, cpu_cnt, cpu_elapsed_time_ms / gpu_elapsed_time_ms);
+		fprintf(logFile, "%d,%d,%d,%d,%.8f,%.8f,%.8f,%.8f,%d,%d,%.8f\n",
+						N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms,
+						cpu_elapsed_time_ms, *h_r_norm, cpu_r_norm, gpu_cnt, cpu_cnt, speedup);
+
+		printf("| %10d | %10d | %10d | %9d | %15.9f | %15.9f | %15.9f | %15.9f | %9d | %9d | %15.9f |\n",
+					 N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms,
+					 cpu_elapsed_time_ms, *h_r_norm, cpu_r_norm, gpu_cnt, cpu_cnt, speedup);
 
 		// printf("\nAssertion passed!\n");
 
@@ -436,7 +451,7 @@ int main(int argc, char *argv[])
 		cudaFree(d_temp_scal);
 	}
 
-	printf("-------------------------------------------------------------------------------------------------------------------------\n\n");
+	printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n");
 
 	return 0;
 }
