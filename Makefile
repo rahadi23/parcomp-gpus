@@ -3,9 +3,9 @@ GLOBAL_C_UTILS := $(wildcard src/utils/*.c)
 GLOBAL_CUDA_UTILS := $(GLOBAL_C_UTILS:.c=.cu)
 OUTPUTS := $(SOURCES:src/%/main.cu=out/%.o)
 
-all: out $(OUTPUTS)
+all: out logs $(OUTPUTS)
 
-out:
+out logs:
 	mkdir -p $@
 
 clean:
