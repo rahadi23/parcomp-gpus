@@ -20,7 +20,8 @@ float *generateA(int N)
 	{
 		for (j = 0; j <= i; j++)
 		{
-			temp = (float)rand() / RAND_MAX;
+			// temp = (float)rand() / RAND_MAX;
+			temp = (float)rand();
 			if (i == j)
 			{
 				A(i, j, N) = temp + N;
@@ -55,7 +56,8 @@ float *generateb(int N)
 	float *b = malloc(sizeof(float) * N);
 	for (i = 0; i < N; i++)
 	{
-		b[i] = (float)rand() / RAND_MAX;
+		// b[i] = (float)rand() / RAND_MAX;
+		b[i] = (float)rand();
 	}
 	return b;
 }
