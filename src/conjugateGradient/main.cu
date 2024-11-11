@@ -296,20 +296,21 @@ void solveCG_cuda(float *A, float *b, float *x, float *p, float *r, float *temp,
 	// printf("Time spent gpu per iter [s]: %e\n", (float)((micro_end_gpu - micro_begin_gpu) / k) / 1e6);
 }
 
-void parseArgs(int argc, char *argv[], int *NBase, int *NCnt, int *MAX_ITER, float *EPS, float *TOL)
+void parseArgs(int argc, char *argv[], int *NMin, int *NMax, int *NMult, int *MAX_ITER, float *EPS, float *TOL)
 {
 	// Check for the right number of arguments
-	if (argc != 6)
+	if (argc != 7)
 	{
-		fprintf(stderr, "[ERROR] Must be run with exactly 5 argument, found %d!\nUsage: %s <NBase> <NCnt> <MAX_ITER> <EPS> <TOL>\n", argc - 1, argv[0]);
+		fprintf(stderr, "[ERROR] Must be run with exactly 6 argument, found %d!\nUsage: %s <NMin> <NMax> <NMult> <MAX_ITER> <EPS> <TOL>\n", argc - 1, argv[0]);
 		exit(1);
 	}
 
-	parseArgsInt(argv[1], NBase);
-	parseArgsInt(argv[2], NCnt);
-	parseArgsInt(argv[3], MAX_ITER);
-	parseArgsFloat(argv[4], EPS);
-	parseArgsFloat(argv[5], TOL);
+	parseArgsInt(argv[1], NMin);
+	parseArgsInt(argv[2], NMax);
+	parseArgsInt(argv[3], NMult);
+	parseArgsInt(argv[4], MAX_ITER);
+	parseArgsFloat(argv[5], EPS);
+	parseArgsFloat(argv[6], TOL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -317,10 +318,10 @@ void parseArgs(int argc, char *argv[], int *NBase, int *NCnt, int *MAX_ITER, flo
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[])
 {
-	int j, NBase, NCnt, MAX_ITER;
+	int j, NMin, NMax, NMult, NIter, MAX_ITER;
 	float EPS, TOL;
 
-	parseArgs(argc, argv, &NBase, &NCnt, &MAX_ITER, &EPS, &TOL);
+	parseArgs(argc, argv, &NMin, &NMax, &NMult, &MAX_ITER, &EPS, &TOL);
 
 	FILE *logFile = fopen(LOG_FILE_NAME, "a");
 	fprintf(logFile, "j,N,grid_size,block_size,is_ok,gpu_time,cpu_time,gpu_r_norm,cpu_r_norm,gpu_iter,cpu_iter,speedup\n");
@@ -330,9 +331,11 @@ int main(int argc, char *argv[])
 	printf("|            |   (nBlock) |  (nThread) |           |            (ms) |            (ms) |                 |                 |           |           |                 |\n");
 	printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
 
-	for (j = 0; j < NCnt; j++)
+	NIter = log10(NMax / NMin) / log10(NMult) + 1;
+
+	for (j = 0; j < NIter; j++)
 	{
-		int N = pow(NBase, 2 * (j + 1));
+		int N = N = NMin * pow(NMult, j);
 
 		// allocate host memory
 		float *h_A = generateA(N);
