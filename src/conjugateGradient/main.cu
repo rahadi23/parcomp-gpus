@@ -424,8 +424,8 @@ int main(int argc, char *argv[])
 		int blockSize = BLOCK_DIM_VEC;
 		float speedup = cpu_elapsed_time_ms / gpu_elapsed_time_ms;
 
-		fprintf(logFile, "%d,%d,%d,%d,%.8f,%.8f,%.8f,%.8f,%d,%d,%.8f\n",
-						N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms,
+		fprintf(logFile, "%d,%d,%d,%d,%d,%.8f,%.8f,%.8f,%.8f,%d,%d,%.8f\n",
+						j, N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms,
 						cpu_elapsed_time_ms, *h_r_norm, cpu_r_norm, gpu_cnt, cpu_cnt, speedup);
 
 		printf("| %10d | %10d | %10d | %9d | %15.9f | %15.9f | %15.9f | %15.9f | %9d | %9d | %15.9f |\n",
