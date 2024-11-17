@@ -16,6 +16,6 @@ clean:
 LOCAL_C_UTILS := $$(wildcard src/%/utils/*.c)
 LOCAL_CUDA_UTILS := $(LOCAL_C_UTILS:.c=.cu)
 
-$(OUTPUTS): out/%.o: $(GLOBAL_C_UTILS) $(LOCAL_C_UTILS) $(LOCAL_CUDA_UTILS) src/%/main.cu
+$(OUTPUTS): out/%.o: $(GLOBAL_C_UTILS) $(GLOBAL_CUDA_UTILS) $(LOCAL_C_UTILS) $(LOCAL_CUDA_UTILS) src/%/main.cu
 	nvcc $^ -o $@
 
