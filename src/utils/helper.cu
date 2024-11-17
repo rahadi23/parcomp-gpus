@@ -1,12 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "helper.cuh"
 
-#define CUDACHECK(err)                    \
-  do                                      \
-  {                                       \
-    cudaCheck((err), __FILE__, __LINE__); \
-  } while (false)
-
-inline void cudaCheck(cudaError_t error_code, const char *file, int line)
+void cudaCheck(cudaError_t error_code, const char *file, int line)
 {
   if (error_code != cudaSuccess)
   {
