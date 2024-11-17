@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/stat.h>
+
 #include "../utils/helper.cuh"
 
 extern "C"
@@ -148,7 +150,9 @@ void cpu_mult(int *h_a, int *h_b, int *h_result, int N)
   }
 }
 
-void parseArgs(int argc, char *argv[], unsigned long *NMin, unsigned long *NMax, int *NMult, int *blockMin, int *blockMax, int *blockMult)
+void parseArgs(int argc, char *argv[],
+               int *NMin, int *NMax, int *NMult,
+               int *blockMin, int *blockMax, int *blockMult)
 {
   // Check for the right number of arguments
   if (argc != 7)
@@ -157,8 +161,8 @@ void parseArgs(int argc, char *argv[], unsigned long *NMin, unsigned long *NMax,
     exit(1);
   }
 
-  parseArgsULong(argv[1], NMin);
-  parseArgsULong(argv[2], NMax);
+  parseArgsInt(argv[1], NMin);
+  parseArgsInt(argv[2], NMax);
   parseArgsInt(argv[3], NMult);
   parseArgsInt(argv[4], blockMin);
   parseArgsInt(argv[5], blockMax);
@@ -167,62 +171,72 @@ void parseArgs(int argc, char *argv[], unsigned long *NMin, unsigned long *NMax,
 
 int main(int argc, char *argv[])
 {
-  unsigned long NMin, NMax;
-  int k, l, NMult, NIter, blockMin, blockMax, blockMult, blockIter;
+  int NMin, NMax;
+  int NMult, NIter, blockMin, blockMax, blockMult, blockIter;
 
   parseArgs(argc, argv, &NMin, &NMax, &NMult, &blockMin, &blockMax, &blockMult);
 
   NIter = log10(NMax / NMin) / log10(NMult) + 1;
   blockIter = log10(blockMax / blockMin) / log10(blockMult) + 1;
 
-  FILE *logFile = fopen(LOG_FILE_NAME, "a");
-  fprintf(logFile, "k,l,N,grid_size,block_size,is_ok,gpu_time,gpu_shared_time,cpu_time,gpu_speedup,gpu_shared_speedup\n");
+  struct stat buffer;
 
-  printf("\n----------------------------------------------------------------------------------------------------------------------------\n");
+  if (stat(LOG_FILE_NAME, &buffer) != 0)
+  {
+    FILE *log_file = fopen(LOG_FILE_NAME, "w");
+    fprintf(log_file, "k,l,N,grid_size,block_size,is_ok,gpu_time,gpu_shared_time,cpu_time,gpu_speedup,gpu_shared_speedup\n");
+    fclose(log_file);
+  }
+
+  printf("\n+-----------+-----------+-----------+-----------+--------------+--------------+--------------+--------------+--------------+\n");
   printf("|         N |  gridSize | blockSize |      isOk |      gpuTime |    gpuShTime |      cpuTime |   gpuSpeedUp | gpuShSpeedUp |\n");
   printf("|           |  (nBlock) | (nThread) |           |         (ms) |         (ms) |         (ms) |              |              |\n");
-  printf("----------------------------------------------------------------------------------------------------------------------------\n");
+  printf("+-----------+-----------+-----------+-----------+--------------+--------------+--------------+--------------+--------------+\n");
 
-  for (k = 0; k < NIter; k++)
+  for (int iN = 0; iN < NIter; iN++)
   {
     float n_cpu_elapsed_time_ms = -1;
 
-    for (l = 0; l < blockIter; l++)
+    for (int iBlock = 0; iBlock < blockIter; iBlock++)
     {
-      unsigned long N = NMin * pow(NMult, k);
-      int blockSize = blockMin * pow(blockMult, l);
+      int N = NMin * pow(NMult, iN);
 
-      size_t NNSize = sizeof(unsigned long) * N * N;
+      int blockSize = blockMin * pow(blockMult, iBlock);
+      int gridSize = (N + blockSize - 1) / blockSize;
+
+      dim3 dimGrid(gridSize, gridSize);
+      dim3 dimBlock(blockSize, blockSize);
+
+      printf("| %9d | %9d | %9d | ",
+             N, gridSize, blockSize);
+
+      size_t NNSize = sizeof(int) * N * N;
 
       // allocate memory in host RAM
-      int *h_a, *h_b, *h_c, *hs_c, *h_cc;
+      int *h_a, *h_b, *h_uc, *h_sc, *h_cc;
       cudaMallocHost((void **)&h_a, NNSize);
       cudaMallocHost((void **)&h_b, NNSize);
-      cudaMallocHost((void **)&h_c, NNSize);
-      cudaMallocHost((void **)&hs_c, NNSize);
+      cudaMallocHost((void **)&h_uc, NNSize);
+      cudaMallocHost((void **)&h_sc, NNSize);
       cudaMallocHost((void **)&h_cc, NNSize);
 
       // random initialize matrix A
-      for (int i = 0; i < N; ++i)
+      for (int iRow = 0; iRow < N; ++iRow)
       {
-        for (int j = 0; j < N; ++j)
+        for (int iCol = 0; iCol < N; ++iCol)
         {
-          h_a[i * N + j] = rand() % 1024;
+          h_a[iRow * N + iCol] = rand() % 1024;
         }
       }
 
       // random initialize matrix B
-      for (int i = 0; i < N; ++i)
+      for (int iRow = 0; iRow < N; ++iRow)
       {
-        for (int j = 0; j < N; ++j)
+        for (int iCol = 0; iCol < N; ++iCol)
         {
-          h_b[i * N + j] = rand() % 1024;
+          h_b[iRow * N + iCol] = rand() % 1024;
         }
       }
-
-      unsigned int gridSize = (N + blockSize - 1) / blockSize;
-      dim3 dimGrid(gridSize, gridSize);
-      dim3 dimBlock(blockSize, blockSize);
 
       float gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms, cpu_elapsed_time_ms;
 
@@ -235,21 +249,22 @@ int main(int argc, char *argv[])
       cudaEventRecord(start, 0);
 
       // initialize GPU
-      int *d_a, *d_b, *d_c;
+      int *d_ua, *d_ub, *d_uc;
 
       // Allocate memory space on the device
-      cudaMalloc((void **)&d_a, NNSize);
-      cudaMalloc((void **)&d_b, NNSize);
-      cudaMalloc((void **)&d_c, NNSize);
+      cudaMalloc((void **)&d_ua, NNSize);
+      cudaMalloc((void **)&d_ub, NNSize);
+      cudaMalloc((void **)&d_uc, NNSize);
 
       // copy matrix A and B from host to device memory
-      cudaMemcpy(d_a, h_a, NNSize, cudaMemcpyHostToDevice);
-      cudaMemcpy(d_b, h_b, NNSize, cudaMemcpyHostToDevice);
+      cudaMemcpy(d_ua, h_a, NNSize, cudaMemcpyHostToDevice);
+      cudaMemcpy(d_ub, h_b, NNSize, cudaMemcpyHostToDevice);
 
-      gpu_mult<<<dimGrid, dimBlock>>>(d_a, d_b, d_c, N);
+      gpu_mult<<<dimGrid, dimBlock>>>(d_ua, d_ub, d_uc, N);
+      CUDACHECK(cudaPeekAtLastError());
 
       // Transfer results from device to host
-      cudaMemcpy(h_c, d_c, NNSize, cudaMemcpyDeviceToHost);
+      cudaMemcpy(h_uc, d_uc, NNSize, cudaMemcpyDeviceToHost);
       cudaDeviceSynchronize();
 
       // time counting terminate
@@ -263,21 +278,25 @@ int main(int argc, char *argv[])
       cudaEventRecord(start, 0);
 
       // initialize GPU
-      int *ds_a, *ds_b, *ds_c;
+      int *d_sa, *d_sb, *d_sc;
 
       // Allocate memory space on the device
-      cudaMalloc((void **)&ds_a, NNSize);
-      cudaMalloc((void **)&ds_b, NNSize);
-      cudaMalloc((void **)&ds_c, NNSize);
+      cudaMalloc((void **)&d_sa, NNSize);
+      cudaMalloc((void **)&d_sb, NNSize);
+      cudaMalloc((void **)&d_sc, NNSize);
 
       // copy matrix A and B from host to device memory
-      cudaMemcpy(ds_a, h_a, NNSize, cudaMemcpyHostToDevice);
-      cudaMemcpy(ds_b, h_b, NNSize, cudaMemcpyHostToDevice);
+      cudaMemcpy(d_sa, h_a, NNSize, cudaMemcpyHostToDevice);
+      cudaMemcpy(d_sb, h_b, NNSize, cudaMemcpyHostToDevice);
 
-      gpu_mult_shared<<<dimGrid, dimBlock, blockSize * blockSize * sizeof(unsigned long) * 2>>>(ds_a, ds_b, ds_c, N, blockSize);
+      gpu_mult_shared<<<dimGrid,
+                        dimBlock,
+                        blockSize * blockSize * sizeof(int) * 2>>>(
+          d_sa, d_sb, d_sc, N, blockSize);
+      CUDACHECK(cudaPeekAtLastError());
 
       // Transfer results from device to host
-      cudaMemcpy(hs_c, ds_c, NNSize, cudaMemcpyDeviceToHost);
+      cudaMemcpy(h_sc, d_sc, NNSize, cudaMemcpyDeviceToHost);
       cudaDeviceSynchronize();
 
       // time counting terminate
@@ -308,37 +327,48 @@ int main(int argc, char *argv[])
       {
         for (int j = 0; j < N; ++j)
         {
-          // printf("[%d][%d]:%d == [%d][%d]:%d, ", i, j, h_cc[i*k + j], i, j, h_c[i*k + j]);
-          if (h_cc[i * N + j] != h_c[i * N + j] || h_cc[i * N + j] != hs_c[i * N + j])
+          // printf("[%d][%d]:%d == [%d][%d]:%d, [%d][%d]:%d == [%d][%d]:%d\n",
+          //        i, j, h_cc[i * k + j], i, j, h_uc[i * k + j],
+          //        i, j, h_cc[i * k + j], i, j, h_sc[i * k + j]);
+
+          if (h_cc[i * N + j] != h_uc[i * N + j] || h_cc[i * N + j] != h_sc[i * N + j])
           {
             resultIsOk = 0;
           }
         }
-        // printf("\n");
       }
 
       float gpu_speedup = n_cpu_elapsed_time_ms / gpu_elapsed_time_ms,
             gpu_shared_speedup = n_cpu_elapsed_time_ms / gpu_shared_elapsed_time_ms;
 
-      fprintf(logFile, "%d,%d,%ld,%d,%d,%d,%.8f,%.8f,%.8f,%.8f,%.8f\n", k, l, N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms, n_cpu_elapsed_time_ms, gpu_speedup, gpu_shared_speedup);
+      FILE *log_file = fopen(LOG_FILE_NAME, "a");
+      fprintf(log_file, "%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f\n",
+              iN, iBlock, N, gridSize, blockSize, resultIsOk,
+              gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms,
+              n_cpu_elapsed_time_ms, gpu_speedup, gpu_shared_speedup);
+      fclose(log_file);
 
-      printf("| %9ld | %9d | %9d | %9d | %12.8f | %12.8f | %12.8f | %12.8f | %12.8f |\n", N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms, n_cpu_elapsed_time_ms, gpu_speedup, gpu_shared_speedup);
+      printf("%9d | %12.6f | %12.6f | %12.6f | %12.6f | %12.6f |\n",
+             resultIsOk,
+             gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms,
+             n_cpu_elapsed_time_ms, gpu_speedup, gpu_shared_speedup);
 
       // free memory
-      cudaFree(d_a);
-      cudaFree(d_b);
-      cudaFree(d_c);
-      cudaFree(ds_a);
-      cudaFree(ds_b);
-      cudaFree(ds_c);
+      cudaFree(d_ua);
+      cudaFree(d_ub);
+      cudaFree(d_uc);
+      cudaFree(d_sa);
+      cudaFree(d_sb);
+      cudaFree(d_sc);
       cudaFreeHost(h_a);
       cudaFreeHost(h_b);
-      cudaFreeHost(h_c);
-      cudaFreeHost(hs_c);
+      cudaFreeHost(h_uc);
+      cudaFreeHost(h_sc);
       cudaFreeHost(h_cc);
     }
   }
 
-  printf("----------------------------------------------------------------------------------------------------------------------------\n\n");
+  printf("+-----------+-----------+-----------+-----------+--------------+--------------+--------------+--------------+--------------+\n\n");
+
   return 0;
 }
