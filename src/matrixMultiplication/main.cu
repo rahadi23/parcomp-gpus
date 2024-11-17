@@ -10,7 +10,7 @@ extern "C"
 #include "../utils/helper.h"
 }
 
-#define LOG_FILE_NAME "logs/matrixMultiplication.csv"
+#define LOG_FILE_FORMAT "logs/matrixMultiplication-%d.csv"
 
 /*
 *********************************************************************
@@ -181,12 +181,18 @@ int main(int argc, char *argv[])
 
   struct stat buffer;
 
-  if (stat(LOG_FILE_NAME, &buffer) != 0)
+  int logId = 1;
+  char *logFileNameWithId = (char *)malloc(sizeof(char) * strlen(LOG_FILE_FORMAT));
+
+  do
   {
-    FILE *log_file = fopen(LOG_FILE_NAME, "w");
-    fprintf(log_file, "k,l,N,grid_size,block_size,is_ok,gpu_time,gpu_shared_time,cpu_time,gpu_speedup,gpu_shared_speedup\n");
-    fclose(log_file);
-  }
+    sprintf(logFileNameWithId, LOG_FILE_FORMAT, logId);
+    logId++;
+  } while (stat(logFileNameWithId, &buffer) == 0);
+
+  FILE *log_file = fopen(logFileNameWithId, "w");
+  fprintf(log_file, "k,l,N,grid_size,block_size,is_ok,gpu_time,gpu_shared_time,cpu_time,gpu_speedup,gpu_shared_speedup\n");
+  fclose(log_file);
 
   printf("\n+-----------+-----------+-----------+-----------+--------------+--------------+--------------+--------------+--------------+\n");
   printf("|         N |  gridSize | blockSize |      isOk |      gpuTime |    gpuShTime |      cpuTime |   gpuSpeedUp | gpuShSpeedUp |\n");
@@ -341,7 +347,7 @@ int main(int argc, char *argv[])
       float gpu_speedup = n_cpu_elapsed_time_ms / gpu_elapsed_time_ms,
             gpu_shared_speedup = n_cpu_elapsed_time_ms / gpu_shared_elapsed_time_ms;
 
-      FILE *log_file = fopen(LOG_FILE_NAME, "a");
+      FILE *log_file = fopen(logFileNameWithId, "a");
       fprintf(log_file, "%d,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f\n",
               iN, iBlock, N, gridSize, blockSize, resultIsOk,
               gpu_elapsed_time_ms, gpu_shared_elapsed_time_ms,
@@ -369,6 +375,8 @@ int main(int argc, char *argv[])
   }
 
   printf("+-----------+-----------+-----------+-----------+--------------+--------------+--------------+--------------+--------------+\n\n");
+
+  free(logFileNameWithId);
 
   return 0;
 }

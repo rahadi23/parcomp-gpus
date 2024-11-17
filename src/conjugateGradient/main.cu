@@ -13,6 +13,8 @@
 #include <assert.h>
 #include <cuda_runtime.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+
 #include "../utils/helper.cuh"
 
 extern "C"
@@ -29,7 +31,7 @@ extern "C"
 #define NB_ELEM_MAT 32
 #define BLOCK_SIZE_MAT 32
 
-#define LOG_FILE_NAME "logs/conjugateGradient.csv"
+#define LOG_FILE_FORMAT "logs/conjugateGradient-%d.csv"
 
 /*
  * --Naive implementation--
@@ -323,8 +325,20 @@ int main(int argc, char *argv[])
 
 	parseArgs(argc, argv, &NMin, &NMax, &NMult, &MAX_ITER, &EPS, &TOL);
 
-	FILE *logFile = fopen(LOG_FILE_NAME, "a");
-	fprintf(logFile, "j,N,grid_size,block_size,is_ok,gpu_time,cpu_time,gpu_r_norm,cpu_r_norm,gpu_iter,cpu_iter,speedup\n");
+	struct stat buffer;
+
+	int logId = 1;
+	char *logFileNameWithId = (char *)malloc(sizeof(char) * strlen(LOG_FILE_FORMAT));
+
+	do
+	{
+		sprintf(logFileNameWithId, LOG_FILE_FORMAT, logId);
+		logId++;
+	} while (stat(logFileNameWithId, &buffer) == 0);
+
+	FILE *log_file = fopen(logFileNameWithId, "w");
+	fprintf(log_file, "j,N,grid_size,block_size,is_ok,gpu_time,cpu_time,gpu_r_norm,cpu_r_norm,gpu_iter,cpu_iter,speedup\n");
+	fclose(log_file);
 
 	printf("\n----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
 	printf("|          N |   gridSize |  blockSize |      isOk |         gpuTime |         cpuTime |        gpuRNorm |        cpuRNorm |   gpuIter |   cpuIter |         speedUp |\n");
@@ -424,9 +438,11 @@ int main(int argc, char *argv[])
 		int blockSize = BLOCK_DIM_VEC;
 		float speedup = cpu_elapsed_time_ms / gpu_elapsed_time_ms;
 
-		fprintf(logFile, "%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%d,%d,%.6f\n",
+		FILE *log_file = fopen(logFileNameWithId, "a");
+		fprintf(log_file, "%d,%d,%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%d,%d,%.6f\n",
 						j, N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms,
 						cpu_elapsed_time_ms, *h_r_norm, cpu_r_norm, gpu_cnt, cpu_cnt, speedup);
+		fclose(log_file);
 
 		printf("| %10d | %10d | %10d | %9d | %15.6f | %15.6f | %15.9e | %15.9e | %9d | %9d | %15.6f |\n",
 					 N, gridSize, blockSize, resultIsOk, gpu_elapsed_time_ms,
@@ -455,6 +471,8 @@ int main(int argc, char *argv[])
 	}
 
 	printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\n");
+
+	free(logFileNameWithId);
 
 	return 0;
 }
