@@ -366,8 +366,6 @@ int main(int argc, char *argv[])
 		cudaEventCreate(&start);
 		cudaEventCreate(&stop);
 
-		cudaEventRecord(start, 0);
-
 		// allocate device memory
 		float *d_A;
 		float *d_b;
@@ -402,6 +400,8 @@ int main(int argc, char *argv[])
 		cudaMalloc((void **)&d_r_norm_old, sizeof(float));
 		cudaMalloc((void **)&d_temp_scal, sizeof(float));
 
+		cudaEventRecord(start, 0);
+
 		// run the main function
 		solveCG_cuda(d_A, d_b, d_x, d_p, d_r, d_temp, d_alpha, d_beta, d_r_norm,
 								 d_r_norm_old, d_temp_scal, h_x, h_r_norm, &gpu_cnt, N, MAX_ITER, EPS);
@@ -411,19 +411,20 @@ int main(int argc, char *argv[])
 		// allocate memory for the result on host side
 		cudaDeviceSynchronize();
 
-		// copy result from device to host
-		cudaMemcpy(h_x, d_x, sizeof(float) * N, cudaMemcpyDeviceToHost);
-
 		cudaEventRecord(stop, 0);
 		cudaEventSynchronize(stop);
 
 		// compute time elapse on GPU computing
 		cudaEventElapsedTime(&gpu_elapsed_time_ms, start, stop);
 
-		cudaEventRecord(start, 0);
+		// copy result from device to host
+		cudaMemcpy(h_x, d_x, sizeof(float) * N, cudaMemcpyDeviceToHost);
 
 		// compare output with sequential version
 		float *h_x_seq = (float *)calloc(N, sizeof(float));
+
+		cudaEventRecord(start, 0);
+
 		solveCG_seq(h_A, h_b, h_x_seq, &cpu_r_norm, &cpu_cnt, N, MAX_ITER, EPS);
 
 		cudaEventRecord(stop, 0);

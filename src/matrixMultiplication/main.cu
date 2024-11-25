@@ -251,9 +251,6 @@ int main(int argc, char *argv[])
       cudaEventCreate(&start);
       cudaEventCreate(&stop);
 
-      // start to count execution time of GPU version
-      cudaEventRecord(start, 0);
-
       // initialize GPU
       int *d_ua, *d_ub, *d_uc;
 
@@ -266,11 +263,12 @@ int main(int argc, char *argv[])
       cudaMemcpy(d_ua, h_a, NNSize, cudaMemcpyHostToDevice);
       cudaMemcpy(d_ub, h_b, NNSize, cudaMemcpyHostToDevice);
 
+      // start to count execution time of GPU version
+      cudaEventRecord(start, 0);
+
       gpu_mult<<<dimGrid, dimBlock>>>(d_ua, d_ub, d_uc, N);
       CUDACHECK(cudaPeekAtLastError());
 
-      // Transfer results from device to host
-      cudaMemcpy(h_uc, d_uc, NNSize, cudaMemcpyDeviceToHost);
       cudaDeviceSynchronize();
 
       // time counting terminate
@@ -280,8 +278,9 @@ int main(int argc, char *argv[])
       // compute time elapse on GPU computing
       cudaEventElapsedTime(&gpu_elapsed_time_ms, start, stop);
 
-      // start to count execution time of GPU with shared memory version
-      cudaEventRecord(start, 0);
+      // Transfer results from device to host
+      cudaMemcpy(h_uc, d_uc, NNSize, cudaMemcpyDeviceToHost);
+      cudaDeviceSynchronize();
 
       // initialize GPU
       int *d_sa, *d_sb, *d_sc;
@@ -295,14 +294,15 @@ int main(int argc, char *argv[])
       cudaMemcpy(d_sa, h_a, NNSize, cudaMemcpyHostToDevice);
       cudaMemcpy(d_sb, h_b, NNSize, cudaMemcpyHostToDevice);
 
+      // start to count execution time of GPU with shared memory version
+      cudaEventRecord(start, 0);
+
       gpu_mult_shared<<<dimGrid,
                         dimBlock,
                         blockSize * blockSize * sizeof(int) * 2>>>(
           d_sa, d_sb, d_sc, N, blockSize);
       CUDACHECK(cudaPeekAtLastError());
 
-      // Transfer results from device to host
-      cudaMemcpy(h_sc, d_sc, NNSize, cudaMemcpyDeviceToHost);
       cudaDeviceSynchronize();
 
       // time counting terminate
@@ -311,6 +311,10 @@ int main(int argc, char *argv[])
 
       // compute time elapse on GPU with shared memory computing
       cudaEventElapsedTime(&gpu_shared_elapsed_time_ms, start, stop);
+
+      // Transfer results from device to host
+      cudaMemcpy(h_sc, d_sc, NNSize, cudaMemcpyDeviceToHost);
+      cudaDeviceSynchronize();
 
       // start the CPU version
       cudaEventRecord(start, 0);
